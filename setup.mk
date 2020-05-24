@@ -12,23 +12,13 @@ DCFLAGS+=$(DIP25)
 
 SCRIPTROOT:=${REPOROOT}/scripts/
 
-#WAVM_HFILES:=aot_export.h  lib_export.h  wasm_export.h
-WAVM_HFILES:=aot_export.h  wasm_export.h
-WAVM_DIFILES:=${WAVM_HFILES:.h=.di}
-WAVMROOT:=${REPOROOT}/../wasm-micro-runtime/
-# WAVM C-header file
-WAVM_INC:=$(WAVMROOT)/core/iwasm/include/
-WAVM_HFILES:=${addprefix $(WAVM_INC)/,$(WAVM_HFILES)}
+#IWASM_HFILES:=aot_export.h  lib_export.h  wasm_export.h
+IWASM_HFILES_1:=aot_export.h  wasm_export.h
+IWASM_DIFILES:=${IWASM_HFILES_1:.h=.di}
+IWASM_HFILES_2:=wasm_runtime_common.h
+IWASM_DIFILES+=${IWASM_HFILES_2:.h=.di}
 
-#WAVM_H:=${WAVMROOT}/Include/WAVM/wavm-c/wavm-c.h
-WAVM_DI_ROOT:=$(REPOROOT)/tagion/vm/wavm/c/
-WAVM_DIFILES:=${addprefix $(WAVM_DI_ROOT)/,$(WAVM_DIFILES)}
-WAVM_PACKAGE:=tagion.vm.wavm.c
-# Change c-array to pointer
-#WAVMa2p:=${SCRIPTROOT}/wasm_array2pointer.pl
-WAVMa2p:=echo ${SCRIPTROOT}/wasm_array2pointer.pl
-
-WAYS+=$(WAVM_DI_ROOT)
+include dstep_setup.mk
 
 LIBNAME:=libwavm.a
 

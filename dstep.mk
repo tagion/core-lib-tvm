@@ -1,11 +1,17 @@
-dodi: $(WAVM_DIFILES)
-	echo $(WAVM_DIFILES)
+dodi: $(IWASM_DIFILES)
+#	echo $(IWASM_DIFILES)
 
-$(WAVM_DI_ROOT)/%.di: ${WAVM_INC}/%.h makeway
-	dstep $< -o $@ --package $(WAVM_PACKAGE)
-	${WAVMa2p} $@
+vpath %.h ${IWASM_INC_1} ${IWASM_INC_2}
 
-dstep:
-	echo $(WAVM_DIFILES)
-	echo $(WAVM_HFILES)
-	echo $(WAVM_INC)
+$(IWASM_DI_ROOT)/%.di: %.h makeway
+	dstep $< -o $@ $(IWASM_FLAGS)
+
+# dstep:
+# 	@echo IWASM_DIFILES=$(IWASM_DIFILES)
+# 	@echo IWASM_HFILES=$(IWASM_HFILES)
+# 	@echo IWASM_FLAGS=$(IWASM_FLAGS)
+
+CLEANER+=clean-dstep
+
+clean-dstep:
+	rm -f $(IWASM_DIFILES)
