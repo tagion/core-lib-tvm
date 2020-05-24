@@ -1,10 +1,11 @@
 dodi: $(IWASM_DIFILES)
 #	echo $(IWASM_DIFILES)
 
-vpath %.h ${IWASM_INC_1} ${IWASM_INC_2}
+vpath %.h ${IWASM_INC}
 
 $(IWASM_DI_ROOT)/%.di: %.h makeway
 	dstep $< -o $@ $(IWASM_FLAGS)
+	$(DSTEP_CORRECT) $@
 
 # dstep:
 # 	@echo IWASM_DIFILES=$(IWASM_DIFILES)

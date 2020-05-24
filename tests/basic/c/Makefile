@@ -41,11 +41,6 @@ CFLAGS+=-ffunction-sections
 CFLAGS+=-fdata-sections
 CFLAGS+=-Wno-unused-parameter
 CFLAGS+=-Wno-pedantic
-#CFLAGS+=-I$(IWASM_ROOT)/core/shared/utils/
-#CFLAGS+=-I$(IWASM_ROOT)/core/app-framework/base/app
-#CFLAGS+=-I$(IWASM_ROOT)//core/shared/utils/uncommon/
-#CFLAGS+=-I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/interpreter -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/aot -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/libraries/libc-builtin -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/include -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src -I/home/carsten/work/tagion_main/wasm-micro-runtime/samples/basic/../../core/shared/include -I/home/carsten/work/tagion_main/wasm-micro-runtime/samples/basic/../../core/iwasm/include -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/platform/linux -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/platform/linux/../include -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/mem-alloc -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/common -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/utils -I/home/carsten/work/tagion_main/wasm-micro-runtime/samples/basic/src -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/utils/uncommon
-
 
 IWASM_INCS+=core/iwasm/interpreter
 IWASM_INCS+=core/iwasm/aot core/iwasm/libraries/libc-builtin
@@ -80,5 +75,3 @@ $(BIN)/%.o: $(SRC)/%.c
 clean:
 	rm -fR $(BIN)
 	rm -f $(MAIN)
-
-#/usr/bin/cc -DBH_DEBUG=1 -DBH_FREE=wasm_runtime_free -DBH_MALLOC=wasm_runtime_malloc -DBH_PLATFORM_LINUX -DBUILD_TARGET_X86_64 -DWASM_ENABLE_AOT=1 -DWASM_ENABLE_FAST_INTERP=0 -DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_LIBC_BUILTIN=1 -DWASM_ENABLE_LIBC_WASI=1 -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/interpreter -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/aot -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/libraries/libc-builtin -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/include -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src -I/home/carsten/work/tagion_main/wasm-micro-runtime/samples/basic/../../core/shared/include -I/home/carsten/work/tagion_main/wasm-micro-runtime/samples/basic/../../core/iwasm/include -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/platform/linux -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/platform/linux/../include -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/mem-alloc -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/iwasm/common -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/utils -I/home/carsten/work/tagion_main/wasm-micro-runtime/samples/basic/src -I/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/utils/uncommon  -Wall -Wextra -Wformat -Wformat-security -mindirect-branch-register -std=gnu99 -ffunction-sections -fdata-sections                                      -Wall -Wno-unused-parameter -Wno-pedantic -fPIC -g   -o CMakeFiles/basic.dir/src/main.c.o   -c /home/carsten/work/tagion_main/wasm-micro-runtime/samples/basic/src/main.c

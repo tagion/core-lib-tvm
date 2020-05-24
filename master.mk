@@ -62,7 +62,6 @@ LDFLAGS+=-lgmp
 LIBRARY:=$(BIN)/$(LIBNAME)
 LIBOBJ:=${LIBRARY:.a=.o};
 
-REVISION:=$(REPOROOT)/$(SOURCE)/revision.di
 .PHONY: $(REVISION)
 .SECONDARY: .touch
 
@@ -154,6 +153,7 @@ CLEANER+=clean
 clean:
 	rm -f $(LIBRARY)
 	rm -f ${OBJS}
+	rm -f $(REVISION)
 
 proper: $(CLEANER)
 	rm -fR ${WAYS}

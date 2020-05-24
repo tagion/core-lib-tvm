@@ -12,11 +12,6 @@ DCFLAGS+=$(DIP25)
 
 SCRIPTROOT:=${REPOROOT}/scripts/
 
-#IWASM_HFILES:=aot_export.h  lib_export.h  wasm_export.h
-IWASM_HFILES_1:=aot_export.h  wasm_export.h
-IWASM_DIFILES:=${IWASM_HFILES_1:.h=.di}
-IWASM_HFILES_2:=wasm_runtime_common.h
-IWASM_DIFILES+=${IWASM_HFILES_2:.h=.di}
 
 include dstep_setup.mk
 
@@ -32,7 +27,15 @@ BUILD?=$(REPOROOT)/build
 WAYS+=${BIN}
 WAYS+=${BUILD}
 
-SOURCE:=tagion
+SOURCE:=tagion/vm/iwasm
+PACKAGE:=${subst /,.,$(SOURCE)}
+test33:
+	echo $(PACKAGE)
+	echo $(SOURCE)
+
+# tagion.vm.iwasm
+# bar:= $(subst $(space),$(comma),$(foo))
+REVISION:=$(REPOROOT)/$(SOURCE)/revision.di
 
 -include dstep.mk
 
