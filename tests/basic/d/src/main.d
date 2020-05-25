@@ -5,7 +5,6 @@ module basic.main;
  */
 
 import tagion.vm.iwasm.c.wasm_export;
-//import wasm_runtime_common=tagion.vm.iwasm.c.wasm_runtime_common;
 import tagion.vm.iwasm.c.lib_export;
 import tagion.vm.iwasm.revision;
 
@@ -55,62 +54,26 @@ int main(string[] args) {
     int exit_result;
 
     static char[512 * 1024] global_heap_buf;
-//    char *buffer;
     char[128] error_buf;
-//    int opt;
-//    char* wasm_path;
-
-//    WASMModuleCommon* wasm_module = null;
-//    WASMModuleInstanceCommon* module_inst = null;
-//    WASMExecEnv* exec_env = null;
     uint buf_size, stack_size = 8092, heap_size = 8092;
-    // WASMFunctionInstanceCommon* func = null;
-    // WASMFunctionInstanceCommon*func2 = null;
     char* native_buffer = null;
     int wasm_buffer = 0;
 
     RuntimeInitArgs init_args;
-//    memset(&init_args, 0, sizeof(RuntimeInitArgs));
-
-    // while ((opt = getopt(argc, argv_main, "hf:")) != -1)
-    // {
-    //     switch (opt)
-    //     {
-    //     case 'f':
-    //         wasm_path = optarg;
-    //         break;
-    //     case 'h':
-    //         print_usage();
-    //         return 0;
-    //     case '?':
-    //         print_usage();
-    //         return 0;
-    //     }
-    // }
-    // if (optind == 1) {
-    //     print_usage();
-    //     return 0;
-    // }
-
-    // Define an array of NativeSymbol for the APIs to be exported.
-    // Note: the array must be static defined since runtime
-    //            will keep it after registration
-    // For the function signature specifications, goto the link:
-    // https://github.com/bytecodealliance/wasm-micro-runtime/blob/master/doc/export_native_api.md
 
     static NativeSymbol[] native_symbols =
         [
             {
-                "intToStr".ptr, 		// the name of WASM function name
-                &intToStr, 			// the native function pointer
+                "intToStr".ptr,         // the name of WASM function name
+                &intToStr,              // the native function pointer
                 "(i*~i)i".ptr,		// the function prototype signature, avoid to use i32
-                null                        // attachment is null
+                null                    // attachment is null
             },
             {
-                "get_pow".ptr, 		// the name of WASM function name
-                &get_pow, 			// the native function pointer
-                "(ii)i".ptr,	        // the function prototype signature, avoid to use i32
-                null                        // attachment is null
+                "get_pow".ptr,          // the name of WASM function name
+                &get_pow,               // the native function pointer
+                "(ii)i".ptr,            // the function prototype signature, avoid to use i32
+                null                    // attachment is null
             },
             {
                 "calculate_native".ptr,

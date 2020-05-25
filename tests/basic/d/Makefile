@@ -4,15 +4,19 @@ REPOROOT?=${shell git rev-parse --show-toplevel}
 DC?=dmd
 BIN:=bin
 SRC:=src
+
+IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
+
 OBJS:=${DFILES:.d=.o}
 OBJS:=${notdir $(OBJS)}
 OBJS:=${addprefix $(BIN)/,$(OBJS)}
+
 
 LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libvmlib.a
 
 MAIN:=basic
 
-IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
+
 
 DFLAGS+=-I$(REPOROOT)
 DFLAGS+=-g

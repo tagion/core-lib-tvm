@@ -4,6 +4,7 @@ IWASMROOT:=${REPOROOT}/../wasm-micro-runtime/
 
 #No correcting script is performed when DSTEP_CORRECT is true
 DSTEP_CORRECT:=true
+DSTEP_CORRECT_2:=true
 # IWASM C-header file
 IWASM_OS:=linux
 IWASM_HFILES_INCLUDE:=aot_export.h  wasm_export.h lib_export.h
@@ -51,6 +52,7 @@ $(IWASM_DI_ROOT)/wasm_runtime_common.di:IWASM_FLAGS+=--global-import $(IWASM_PAC
 $(IWASM_DI_ROOT)/wasm.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(IWASM_DI_ROOT)/wasm_native.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(IWASM_DI_ROOT)/wasm_runtime_common.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
+$(IWASM_DI_ROOT)/wasm_runtime_common.di:DSTEP_CORRECT_2:=$(SCRIPTROOT)/wasm_runtime_common.pl
 #IWASM_FLAGS+=--global-import $(IWASM_PACKAGE).wasm
 
 # Change c-array to pointer

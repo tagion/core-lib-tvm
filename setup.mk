@@ -1,4 +1,5 @@
-REPOROOT?=${shell git root}
+REPOROOT?=${shell git rev-parse --show-toplevel}
+
 -include $(REPOROOT)/localsetup.mk
 
 ifndef NOUNITTEST
@@ -14,6 +15,8 @@ SCRIPTROOT:=${REPOROOT}/scripts/
 
 
 include dstep_setup.mk
+IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
+LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libvmlib.a
 
 LIBNAME:=libwavm.a
 
@@ -70,13 +73,15 @@ UNITTEST:=bin/uinttest
 
 #DFILES+=$(WAVM_DI)
 #TESTDCFLAGS+=$(WAVM_DI)
+TESTDCFLAGS+=$(LIBS)
 TESTDCFLAGS+=$(TAGION_CORE)/bin/libtagion.a
 TESTDCFLAGS+=$(REPOROOT)/tests/unittest.d
-#TESTDCFLAGS+=-main
+TESTDCFLAGS+=-main
 
 TESTDCFLAGS+=$(OUTPUT)$(UNITTEST)
 TESTDCFLAGS+=$(LDCFLAGS)
-TESTDCFLAGS+=-L-lunwind -L-L/usr/lib/llvm-6.0/lib -L-lLLVM-6.0 -L-L/home/carsten/work/tagion_main/tagion_wavm/../WAVM/ -L-lWAVM
+
+#TESTDCFLAGS+=-L-lunwind -L-L/usr/lib/llvm-6.0/lib -L-lLLVM-6.0 -L-L/home/carsten/work/tagion_main/tagion_wavm/../WAVM/ -L-lWAVM
 
 
 #MAIN+=unittest
