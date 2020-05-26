@@ -1,17 +1,26 @@
 module tagion.vm.iwasm.IWasm;
 
 import std.traits : isFunctionPointer, ParameterStorageClassTuple, ParameterStorageClass, ParameterTypeTuple,
-ReturnType, isBasicType, Unqual, isCallable;
+ReturnType, isBasicType, Unqual, isCallable, isPointer;
 
 import std.format;
 import std.typecons : Tuple;
 import std.string : toStringz, fromStringz;
-
+//import bin = std.bitmanip;
+import std.outbuffer;
 import tagion.vm.iwasm.c.wasm_export;
 import tagion.vm.iwasm.c.lib_export;
 import tagion.TagionExceptions;
 import core.stdc.stdlib : calloc, free;
 
+import std.stdio;
+
+extern(C)
+bool wasm_runtime_call_wasm (
+    wasm_exec_env_t exec_env,
+    wasm_function_inst_t function_,
+    uint argc,
+    uint* argv);
 
 @safe
 class IWasmException : TagionException {
@@ -27,13 +36,16 @@ struct IWasmEngine {
         RuntimeInitArgs runtime_args;
         // ubyte[] global_heap;
         char[] error_buf;
-        wasm_module_t wasm_module;
-        wasm_module_inst_t module_inst;
+        @nogc {
+            wasm_module_t wasm_module;
+            wasm_module_inst_t module_inst;
+            wasm_exec_env_t exec_env;
+        }
     }
 
     @trusted
     this(
-        const NativeSymbol[] native_symbols,
+        const WasmSymbols symbols,
         const uint heap_size,
         const uint stack_size,
         ref uint[] global_heap,
@@ -48,10 +60,11 @@ struct IWasmEngine {
 
         // Native symbols need below registration phase
         runtime_args.native_module_name = toStringz(module_name);
-        runtime_args.n_native_symbols = cast(uint)native_symbols.length;
-        runtime_args.native_symbols = cast(NativeSymbol*)native_symbols.ptr;
+        runtime_args.n_native_symbols = cast(uint)symbols.native_symbols.length;
+        runtime_args.native_symbols = cast(NativeSymbol*)symbols.native_symbols.ptr;
 
-        .check(wasm_runtime_full_init(&runtime_args), "Faild to initialize iwasm runtime");
+        const runtime_init_success=wasm_runtime_full_init(&runtime_args);
+        .check(runtime_init_success, "Faild to initialize iwasm runtime");
 
         wasm_module=wasm_runtime_load(
             wasm_code.ptr,
@@ -70,6 +83,7 @@ struct IWasmEngine {
 
         .check(module_inst !is null, format("Instantiate wasm module failed. error: %s", fromStringz(error_buf.ptr)));
 
+        exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
 
         // with (runtime_args) {
         //     mem_alloc_type =
@@ -77,30 +91,88 @@ struct IWasmEngine {
         //wasm_engine=wasm_engine_new();
     }
 
+    struct Function {
+        wasm_function_inst_t func;
+        string name;
+    }
+
+    @trusted
+    Function lookup(string func_name) const {
+        Function result;
+        result.func=wasm_runtime_lookup_function(module_inst, toStringz(func_name), null);
+        result.name=func_name;
+        return result;
+    }
+
+    template SizeOf(Args...) {
+        static if (Args.length is 0) {
+            enum SizeOf=0;
+        }
+        else {
+            enum _S=Args[0].sizeof;
+            enum S=(_S % int.sizeof == 0)?_S:_S+int.sizeof;
+            enum SizeOf=S+SizeOf!(Args[1..$]);
+        }
+    }
+//    RetT call(RetT, Args...)(in Function f, Args args) {
+    @trusted
+    RetT call(RetT, Args...)(Function f, Args args) {
+        auto out_buf=new OutBuffer;
+        out_buf.alignSize(int.sizeof);
+        out_buf.reserve(SizeOf!Args);
+        foreach(i, arg; args) {
+            out_buf.write(arg);
+        }
+        assert(out_buf.offset % int.sizeof == 0);
+        auto args_buf=cast(uint[])(out_buf.toBytes);
+        auto success=wasm_runtime_call_wasm(exec_env, f.func, cast(uint)args_buf.length, args_buf.ptr);
+        .check(success, format("Wasm function failed %s %s(%s)\n%s",
+                RetT.stringof, f.name, Args.stringof,
+                fromStringz(wasm_runtime_get_exception(module_inst))));
+        static if (!is(RetT==void)) {
+             return *cast(RetT*)args_buf.ptr;
+        }
+    }
+
+    @trusted
+    int malloc(T)(uint size, ref T ptr) if (isPointer!T) {
+        return wasm_runtime_module_malloc(module_inst, size, cast(void**)&ptr);
+    }
+
+    @trusted
+    void free(int memory_index) {
+        if(memory_index) {
+            wasm_runtime_module_free(module_inst, memory_index);
+        }
+    }
 
     @trusted
     ~this() {
 //        if(wasm_buffer) wasm_runtime_module_free(module_inst, wasm_buffer);
 //        wasm_runtime_destroy_exec_env(exec_env);
+        if (exec_env) {
+            wasm_runtime_destroy_exec_env(exec_env);
+        }
         wasm_runtime_deinstantiate(module_inst);
         wasm_runtime_destroy();
     }
 }
 
 @safe
-struct WasmModule {
-    private {
+struct WasmSymbols {
+//    private {
         NativeSymbol[] native_symbols;
         size_t[string] native_index;
-    }
+//    }
 
-    void opCall(F)(string symbol, F func, string signature, void* attachment=null) if (isCallable!F) {
-        NativeSymbol native_symbol;
-        native_symbol.symbol=symbol.toStringz;
-        native_symbol.func_ptr=func;
-        native_symbol.signature=signature.toStringz;
-        native_symbol.attachment=attachment;
+    void opCall(F)(string symbol, F func, string signature, void* attachment=null) if (isFunctionPointer!F) {
         .check(!(symbol in native_index), format("Native symbol %s is already definded", symbol));
+        NativeSymbol native_symbol={
+                symbol.toStringz,         // the name of WASM function name
+                func,                     // the native function pointer
+                signature.toStringz,	  // the function prototype signature, avoid to use i32
+                attachment                // attachment if none the null
+        };
         native_index[symbol]=native_symbols.length;
         native_symbols~=native_symbol;
     }
@@ -127,7 +199,7 @@ struct WasmModule {
         }
     }
 
-    static string symbols(F)() if (isCallable!F) {
+    static string paramSymbols(F)() if (isCallable!F) {
         alias Params=ParameterTypeTuple!F;
         string result;
         result~='(';
@@ -489,10 +561,11 @@ struct WasmModule {
 }
 
 
-version(unittest) {
+version(none) {
+//version(unittest) {
     import std.stdio;
     import std.math;
-    import tagion.vm.iwasm.c.wasm_export;
+//    import tagion.vm.iwasm.c.wasm_export;
     import tagion.vm.iwasm.c.wasm_runtime_common;
 
 //#include <stdio.h>
@@ -500,7 +573,7 @@ version(unittest) {
 //#include "wasm_export.h"
 //#include "math.h"
 
-    extern(C) {
+
 
 // extern bool
 // wasm_runtime_call_indirect(wasm_exec_env_t exec_env,
@@ -519,7 +592,7 @@ version(unittest) {
                 j--;
             }
         }
-
+    extern(C) {
 // The first parameter exec_env must be defined using type wasm_exec_env_t
 // which is the calling convention for exporting native API by WAMR.
 //
@@ -588,135 +661,14 @@ version(unittest) {
         }
     }
 
-    extern(C) {
-        int intToStr(int x, char* str, int str_len, int digit);
-        int get_pow(int x, int y);
-        int calculate_native(int n, int func1, int func2);
-    }
-}
-
-
-unittest {
-    import std.stdio;
-    import std.file : fread=read, exists;
-//    enum REPOROOT="../../../";
-//    enum testapp_file=REPOROOT~"tests/basic/c/wasm-apps/testapp.wasm";
-    enum testapp_file="tests/basic/c/wasm-apps/testapp.wasm";
-    immutable wasm_code = cast(immutable(ubyte[]))testapp_file.fread();
-
-    WasmModule wasm_module;
-    wasm_module("intToStr", &intToStr, "(i*~i)i");
-    wasm_module("get_pow", &get_pow, "(ii)i");
-    wasm_module("calculate_native", &calculate_native, "(iii)i");
-
-    uint[] global_heap;
-    global_heap.length=512 * 1024;
-
-    auto wasn_engine=IWasmEngine(
-        wasm_module.native_symbols,
-        8092, // Stack size
-        8092, // Heap size
-        global_heap,
-        __FUNCTION__,
-        wasm_code);
-
-//    enum current_dir=getcwd;
-//    enum ee="defile.mk".exists;
-//    pragma(msg, "dfiles.mk ", ee );
-    writefln("%s %s", testapp_file, testapp_file.exists);
-//    writefln("%s",
 //}
 }
 
 version(none)
-unittest {
-    import std.array : join;
-    import std.stdio;
-    string hello_wast = [
-        "(module",
-        "  (import \"\" \"hello\" (func $1 (param i32) (result i32)))",
-        "  (func (export \"run\") (param i32) (result i32)",
-        "    (call $1 (local.get 0))",
-        "  )",
-        ")"].join("\n");
-
-    //    @safe
-    static int hello_callback(int x) {
-        writefln("Hello world! (argument = %d)", x);
-        auto result=x+1;
-        writefln("results %s\n\0", x);
-        return result;
+extern(C) {
+    int intToStr(int x, char* str, int str_len, int digit) {
+        return 0;
     }
-
-    auto e=new WasmEngine;
-//     e.wasmModule("hello_wast", hello_wast);
-    auto wasmModule=WasmModule(e, hello_wast, "store", "compartment");
-    pragma(msg, typeof(&hello_callback));
-
-    wasmModule.external(&hello_callback);
+    int get_pow(int x, int y);
+    int calculate_native(int n, int func1, int func2);
 }
-
-/++
- 32 check_symbol_signature(const WASMType *type, const char *signature)
- 33 {
- 34     const char *p = signature, *p_end;
- 35     char sig_map[] = { 'F', 'f', 'I', 'i' }, sig;
- 36     uint32 i = 0;
- 37
- 38     if (!p || strlen(p) < 2)
- 39         return false;
- 40
- 41     p_end = p + strlen(signature);
- 42
- 43     if (*p++ != '(')
- 44         return false;
- 45
- 46     if ((uint32)(p_end - p) < type->param_count + 1)
- 47         /* signatures of parameters, and ')' */
- 48         return false;
- 49
- 50     for (i = 0; i < type->param_count; i++) {
- 51         sig = *p++;
- 52         if (sig == sig_map[type->types[i] - VALUE_TYPE_F64])
- 53             /* normal parameter */
- 54             continue;
- 55
- 56         if (type->types[i] != VALUE_TYPE_I32)
- 57             /* pointer and string must be i32 type */
- 58             return false;
- 59
- 60         if (sig == '*') {
- 61             /* it is a pointer */
- 62             if (i + 1 < type->param_count
- 63                 && type->types[i + 1] == VALUE_TYPE_I32
- 64                 && *p == '~') {
- 65                 /* pointer length followed */
- 66                 i++;
- 67                 p++;
- 68             }
- 69         }
- 70         else if (sig == '$') {
- 71             /* it is a string */
- 72         }
- 73         else {
- 74             /* invalid signature */
- 75             return false;
- 76         }
- 77     }
- 78
- 79     if (*p++ != ')')
- 80         return false;
- 81
- 82     if (type->result_count) {
- 83         if (p >= p_end)
- 84             return false;
- 85         if (*p++ != sig_map[type->types[i] - VALUE_TYPE_F64])
- 86             return false;
- 87     }
- 88
- 89     if (*p != '\0')
- 90         return false;
- 91
- 92     return true;
- 93 }
- +/

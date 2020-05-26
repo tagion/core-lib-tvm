@@ -1,52 +1,39 @@
-module src.main;
+
+import std.traits : isFunctionPointer, ParameterStorageClassTuple, ParameterStorageClass, ParameterTypeTuple,
+ReturnType, isBasicType, Unqual, isCallable, isPointer;
+import tagion.vm.iwasm.IWasm;
+
+import std.string : fromStringz;
+
+
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-import tagion.vm.iwasm.c.wasm_export;
-import tagion.vm.iwasm.c.lib_export;
-import tagion.vm.iwasm.revision;
+version(none)
+extern(C) {
+    int intToStr(int x, char* str, int str_len, int digit);
+    int get_pow(int x, int y);
+    int calculate_native(int n, int func1, int func2);
+}
 
-import std.getopt;
-import std.format;
-import std.array : join;
-import std.stdio;
-import std.string : fromStringz;
-import std.file : fread=read;
-import std.outbuffer;
-import src.native_impl;
+version(none)
+unittest {
+    import tagion.vm.iwasm.c.wasm_export;
+    import tagion.vm.iwasm.c.lib_export;
+    import tagion.vm.iwasm.revision;
 
-int main(string[] args) {
-    immutable program=args[0];
-    string wasm_path;
-    bool version_switch;
-    auto main_args = getopt(args,
-        std.getopt.config.caseSensitive,
-        std.getopt.config.bundling,
-        "version",   "display the version",  &version_switch,
-        "inputfile|f","Parh of wasm file", &wasm_path,
-        );
+    import std.getopt;
+    import std.format;
+    import std.array : join;
+    import std.stdio;
+    import std.string : fromStringz;
+    import std.file : fread=read;
+    import std.outbuffer;
+    import src.native_impl;
 
-    if (version_switch) {
-        writefln("version %s", REVNO);
-        writefln("Git handle %s", HASH);
-        return 0;
-    }
-
-    if ( main_args.helpWanted ) {
-        defaultGetoptPrinter(
-            [
-                format("%s version %s", program, REVNO),
-                "Documentation: https://tagion.org/",
-                "",
-                "Usage:",
-                format("%s -f <in-file>", program),
-                ].join("\n"),
-            main_args.options);
-        return 0;
-    }
-    int exit_result;
+    enum wasm_path="tests/basic/c/wasm-apps/testapp.wasm";
 
     static char[512 * 1024] global_heap_buf;
     char[128] error_buf;
@@ -54,8 +41,13 @@ int main(string[] args) {
     char* native_buffer = null;
     int wasm_buffer = 0;
 
-    RuntimeInitArgs init_args;
+    //  RuntimeInitArgs init_args;
 
+    WasmSymbols wasm_symbols;
+    wasm_symbols("intToStr", &intToStr, "(i*~i)i");
+    wasm_symbols("get_pow", &get_pow, "(ii)i");
+    wasm_symbols("calculate_native", &calculate_native, "(iii)i");
+    version(none)
     static NativeSymbol[] native_symbols =
         [
             {
@@ -78,18 +70,32 @@ int main(string[] args) {
             }
             ];
 
-    init_args.mem_alloc_type = mem_alloc_type_t.Alloc_With_Pool;
-    init_args.mem_alloc_option.pool.heap_buf = global_heap_buf.ptr;
-    init_args.mem_alloc_option.pool.heap_size = global_heap_buf.length;
+    uint[] global_heap;
+    global_heap.length=512 * 1024;
+//    IWasmEngine wasm_engine;
+    auto wasm_engine=IWasmEngine(
+        wasm_symbols,
+//        8092, // Stack size
+//        8092, // Heap size
+        global_heap, // Global heap
+        "env",
+//        null);
+        );
 
-    // Native symbols need below registration phase
-    init_args.n_native_symbols = cast(uint)native_symbols.length;
-    init_args.native_module_name = "env".ptr;
-    init_args.native_symbols = native_symbols.ptr;
+    with(wasm_engine) {
+//        runtime_args.mem_alloc_type = mem_alloc_type_t.Alloc_With_Pool;
+//        runtime_args.mem_alloc_option.pool.heap_buf = global_heap_buf.ptr;
+//        runtime_args.mem_alloc_option.pool.heap_size = global_heap_buf.length;
 
-    if  (!wasm_runtime_full_init(&init_args)) {
+        // Native symbols need below registration phase
+        //     runtime_args.n_native_symbols = cast(uint)wasm_symbols.native_symbols.length;
+        //     runtime_args.native_module_name = "env".ptr;
+        //  runtime_args.native_symbols = wasm_symbols.native_symbols.ptr;
+    }
+
+    if  (!wasm_runtime_full_init(&wasm_engine.runtime_args)) { //init_args)) {
         writeln("Init runtime environment failed.");
-        return -1;
+        assert(0);
     }
 
     scope(exit) {
@@ -146,7 +152,10 @@ int main(string[] args) {
         arg_buf.write(arg_i);
         arg_buf.write(arg_d);
         arg_buf.write(arg_f);
-
+//    argv[0] = 10;
+        // the second arg will occupy two array elements
+//    memcpy(&argv[1], &arg_d, arg_d.sizeof);
+//    *cast(float*)(argv+3) = 300.002;
         auto func = cast(void* function())wasm_runtime_lookup_function(module_inst, "generate_float".ptr, null);
 
         if (!(func)) {
@@ -180,7 +189,7 @@ int main(string[] args) {
         }
 
         if (wasm_runtime_call_wasm(exec_env, func2, 4, argv2.ptr) ) {
-            writefln("Native finished calling wasm function: float_to_string, returned a formatted string: %s", native_buffer.fromStringz);
+            writefln("Native finished calling wasm function: float_to_string, returned a formatted string: %s", native_buffer);
         }
         else {
             throw new Exception(format("call wasm function float_to_string failed. error: %s", fromStringz(wasm_runtime_get_exception(module_inst))));
@@ -204,8 +213,74 @@ int main(string[] args) {
         }
 
     } catch(Exception e) {
-        exit_result=-1;
+
+        //exit_result=-1;
         writeln(e.msg);
     }
-    return exit_result;
+}
+
+//version(none)
+unittest {
+    import src.native_impl;
+    import std.stdio;
+    import std.file : fread=read, exists;
+    enum testapp_file="tests/basic/c/wasm-apps/testapp.wasm";
+    immutable wasm_code = cast(immutable(ubyte[]))testapp_file.fread();
+    pragma(msg, typeof(&intToStr), " ", isCallable!intToStr, "  ", ParameterTypeTuple!intToStr);
+    auto x=&intToStr;
+    WasmSymbols wasm_symbols;
+    wasm_symbols("intToStr", &intToStr, "(i*~i)i");
+    wasm_symbols("get_pow", &get_pow, "(ii)i");
+    wasm_symbols("calculate_native", &calculate_native, "(iii)i");
+
+    uint[] global_heap;
+    global_heap.length=512 * 1024;
+
+    auto wasm_engine=IWasmEngine(
+        wasm_symbols,
+        8092, // Stack size
+        8092, // Heap size
+        global_heap, // Global heap
+        "env",
+        wasm_code);
+
+    float ret_val;
+
+    {
+        import std.conv : to;
+        auto generate_float=wasm_engine.lookup("generate_float");
+        ret_val=wasm_engine.call!float(generate_float, 10, 0.000101, 300.002f);
+        //const unittest_ret_val=unittest_generate_float(10, 0.000101, 300.002f);
+        //       writefln("ret_val=%s", ret_val.to!string);
+        assert(ret_val.to!string == "102010");
+//        writefln("unittest_ret_val=%f", unittest_ret_val);
+        // assert(ret_val == unittest_ret_val);
+    }
+
+    {
+        auto float_to_string=wasm_engine.lookup("float_to_string");
+        char* native_buffer;
+        auto wasm_buffer=wasm_engine.malloc(100, native_buffer);
+        scope(exit) {
+            wasm_engine.free(wasm_buffer);
+        }
+        wasm_engine.call!void(float_to_string, ret_val, wasm_buffer, 100, 3);
+        //      writefln("Result %s", fromStringz(native_buffer));
+        assert(fromStringz(native_buffer) == "102009.921");
+    }
+
+    {
+        auto calculate=wasm_engine.lookup("calculate");
+//        uint[] argv = [3];
+        auto ret=wasm_engine.call!int(calculate, 3);
+//        writefln("ret=%d", ret);
+        assert(ret == 120);
+
+    }
+//    enum current_dir=getcwd;
+//    enum ee="defile.mk".exists;
+//    pragma(msg, "dfiles.mk ", ee );
+    writefln("%s %s", testapp_file, testapp_file.exists);
+//    writefln("%s",
+//}
 }

@@ -1,4 +1,4 @@
-module basic.native_impl;
+module src.native_impl;
 
 /*
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.

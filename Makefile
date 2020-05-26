@@ -13,57 +13,24 @@ AR?=ar
 include $(REPOROOT)/command.mk
 
 include setup.mk
-WORKDIR?=$(REPOROOT)
--include $(WORKDIR)/dfiles.mk
 
-BIN:=$(REPOROOT)/bin/
+-include $(REPOROOT)/dfiles.mk
+
+#BIN:=$(REPOROOT)/bin/
 LDCFLAGS+=$(LINKERFLAG)-L$(BIN)
 ARFLAGS:=rcs
-BUILD?=$(REPOROOT)/build
+BUILD:=$(REPOROOT)/build
 #SRC?=$(REPOROOT)
 OBJS=${DFILES:.d=.o}
+#OBJS=${addprefix $(BIN)/,$(OBJS)}
+
+LIBOBJ:=$(BIN)/libiwavm.o
 
 .SECONDARY: $(TOUCHHOOK)
 .PHONY: ddoc makeway
 
 
 INCFLAGS=${addprefix -I,${INC}}
-
-
-
-#External libaries
-#openssl
-#secp256k1 (elliptic curve signature library)
-SECP256K1ROOT:=$(REPOROOT)/../secp256k1
-SECP256K1LIB:=$(SECP256K1ROOT)/.libs/libsecp256k1.a
-
-P2PLIB:=$(REPOROOT)/../libp2pDWrapper/
-#DCFLAGS+=-I$(P2PLIB)
-
-LDCFLAGS+=$(LINKERFLAG)-lssl
-LDCFLAGS+=$(LINKERFLAG)-lgmp
-LDCFLAGS+=$(LINKERFLAG)-lcrypto
-
-#LDCFLAGS+=-L$(P2PLIB)bin/libp2p.a
-#LDCFLAGS+=-L$(P2PLIB)bin/libp2p_go.a
-#SECP256K1_LDCFLAGS+=$(LINKERFLAG)-L$(SECP256K1ROOT)/.libs/
-#ECP256K1_LDCFLAGS+=$(LINKERFLAG)-Lsecp256k1
-
-
-# CFLAGS
-CFLAGS+=-I$(SECP256K1ROOT)/src/
-CFLAGS+=-I$(SECP256K1ROOT)/
-CFLAGS+=-DUSE_NUM_GMP=1
-#LDFLAGS+=-L$(SECP256K1ROOT)/.libs/
-#LDFLAGS+=${SECP256K1LIB}
-#LDFLAGS+=-lgmp
-#${SECP256K1LIB}
-#CFLAGS+=-DUSE_FIELD_10X2=1
-
-LIBRARY:=$(BIN)/$(LIBNAME)
-LIBOBJ:=${LIBRARY:.a=.o};
-
-REVISION:=$(REPOROOT)/$(SOURCE)/revision.di
 
 .PHONY: $(REVISION)
 .SECONDARY: .touch
@@ -105,6 +72,7 @@ include $(REPOROOT)/source.mk
 
 ifndef DFILES
 lib: dfiles.mk
+	@echo "call lib"
 	$(MAKE) lib
 
 test: lib
@@ -113,10 +81,11 @@ else
 lib: $(REVISION) $(LIBRARY)
 
 test: $(UNITTEST)
-	export LD_LIBRARY_PATH=$(WAVMROOT); ./$(UNITTEST)
+	export LD_LIBRARY_PATH=$(LIBBRARY_PATH); $(UNITTEST)
 
-$(UNITTEST): $(DFILES)
-	$(PRECMD)$(DC) $(DCFLAGS) $(INCFLAGS) $(DFILES) $(TESTDCFLAGS)
+$(UNITTEST):
+	$(PRECMD)$(DC) $(DCFLAGS) $(INCFLAGS) $(DFILES) $(TESTDCFLAGS) $(OUTPUT)$@
+#$(LDCFLAGS)
 
 endif
 
@@ -155,11 +124,19 @@ ddoc: $(DDOCMODULES)
 	@echo "## compile "$(notdir $<)
 	$(PRECMD)gcc  -m64 $(CFLAGS) -c $< -o $@
 
+%.o: %.d
+	@echo "########################################################################################"
+	@echo "## compile "$(notdir $<)
+	${PRECMD}$(DC) ${INCFLAGS} $(DCFLAGS) $< -c $(OUTPUT)$@
+
+test33:$(OBJS)
+
+
 $(LIBRARY): ${DFILES}
 	@echo "########################################################################################"
 	@echo "## Library $@"
 	@echo "########################################################################################"
-	${PRECMD}$(DC) ${INCFLAGS} $(DCFLAGS) $(DFILES) -c $(OUTPUT)$(LIBRARY)
+	${PRECMD}$(DC) ${INCFLAGS} $(DCFLAGS) $(DFILES) -c -lib -of$(LIBRARY)
 
 CLEANER+=clean
 
