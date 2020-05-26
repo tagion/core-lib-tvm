@@ -72,30 +72,4 @@ INC+=$(REPOROOT)
 #LDCFLAGS+=$(P2PLIB)bin/libp2p_go.a
 #LDCFLAGS+=$(SECP256K1LIB)
 
-test42:
-	@echo $(TAGION_DFILES)
-
-
-UNITTEST:=$(BIN)/uinttest
-
-#DFILES+=$(WAVM_DI)
-#TESTDCFLAGS+=$(WAVM_DI)
-TESTDCFLAGS+=-I$(REPOROOT)/tests/basic/d/
-TESTDCFLAGS+=$(LIBS)
-#TESTDCFLAGS+=$(TAGION_CORE)/bin/libtagion.a
-TESTDCFLAGS+=$(TAGION_DFILES)
-TESTDCFLAGS+=$(REPOROOT)/tests/basic/d/src/native_impl.d
-TESTDCFLAGS+=$(REPOROOT)/tests/unittest.d
-TESTDCFLAGS+=-main
-
-vpath %.d tests/basic/d/
-
-
-#$(UNITTEST): DFILES+=$(REPOROOT)/tests/basic/d/src/native_impl.d
-#TESTDCFLAGS+=$(OUTPUT)$(UNITTEST)
-#TESTDCFLAGS+=$(LDCFLAGS)
-
-#TESTDCFLAGS+=-L-lunwind -L-L/usr/lib/llvm-6.0/lib -L-lLLVM-6.0 -L-L/home/carsten/work/tagion_main/tagion_wavm/../WAVM/ -L-lWAVM
-
-
-#MAIN+=unittest
+include unittest_setup.mk
