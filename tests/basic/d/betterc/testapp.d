@@ -13,7 +13,7 @@ int calculate_native(int n, int func1, int func2);
 // Primitive parameters functions
 //
 float generate_float(int iteration, double seed1, float seed2) {
-    float ret;
+    float ret=0;
 
 //    printf ("calling into WASM function: %s\n", __FUNCTION__);
 

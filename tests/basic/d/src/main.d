@@ -4,9 +4,9 @@ module src.main;
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-import tagion.vm.iwasm.c.wasm_export;
-import tagion.vm.iwasm.c.lib_export;
-import tagion.vm.iwasm.revision;
+import tagion.vm.wamr.c.wasm_export;
+import tagion.vm.wamr.c.lib_export;
+import tagion.vm.wamr.revision;
 
 import std.getopt;
 import std.format;
@@ -16,6 +16,20 @@ import std.string : fromStringz;
 import std.file : fread=read;
 import std.outbuffer;
 import src.native_impl;
+
+float generate_float(int iteration, double seed1, float seed2) {
+    float ret=0;
+    writefln("iteration=%d seed1=%s seed2=%s", iteration, seed1, seed2);
+//    printf ("calling into WASM function: %s\n", __FUNCTION__);
+
+    for (int i=0; i<iteration; i++){
+
+        ret += 1.0f/seed1 + seed2;
+    }
+
+    return ret;
+}
+
 
 int main(string[] args) {
     immutable program=args[0];
@@ -137,12 +151,13 @@ int main(string[] args) {
         }
 
         //uint[4] argv;
-        double arg_d = 0.000101;
+
         int arg_i=10;
+        double arg_d = 0.000101;
         float arg_f=300.002;
         auto arg_buf=new OutBuffer;
         arg_buf.alignSize(int.sizeof);
-        arg_buf.reserve(4/int.sizeof);
+        arg_buf.reserve(4*int.sizeof);
         arg_buf.write(arg_i);
         arg_buf.write(arg_d);
         arg_buf.write(arg_f);
@@ -169,6 +184,7 @@ int main(string[] args) {
         // must allocate buffer from wasm instance memory space (never use pointer from host runtime)
         wasm_buffer = wasm_runtime_module_malloc(module_inst, 100, cast(void**)&native_buffer);
 
+        writefln("wasm_buffer=%d", wasm_buffer);
         *cast(float*)argv2 = ret_val;   // the first argument
         argv2[1] = wasm_buffer;     // the second argument is the wasm buffer address
         argv2[2] = 100;             //  the third argument is the wasm buffer size

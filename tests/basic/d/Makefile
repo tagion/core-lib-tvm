@@ -27,7 +27,7 @@ DFLAGS+=-g
 
 ifndef DFILES
 dfiles.mk:
-	find . -name "*.d" -printf "DFILES+=%P\n" > $@
+	find src -name "*.d" -printf "DFILES+=%P\n" > $@
 
 all: dfiles.mk
 	$(MAKE) $@
@@ -36,8 +36,10 @@ else
 all: $(MAIN)
 
 run: all $(BETTERCWASM)
-	./$(MAIN) -f ../c/wasm-apps/testapp.wasm
-	./$(MAIN) -f betterc/testapp.wasm
+	@echo "\n---- WASM C        -----"
+	@./$(MAIN) -f ../c/wasm-apps/testapp.wasm
+	@echo "\n---- WASM Better-C -----"
+	@./$(MAIN) -f betterc/testapp.wasm
 
 
 ddd: all
@@ -59,12 +61,12 @@ info:
 	echo $(OBJS)
 
 $(BETTERCWASM):
-	make -c betterc
+	$(MAKE) -C betterc
 
 clean:
 	rm -f $(MAIN)
 	rm -f $(OBJS)
-	make -c betterc clean
+	$(MAKE) -C betterc clean
 
 proper: clean
 	rm -f dfiles.mk
