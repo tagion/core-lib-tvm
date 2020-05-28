@@ -1,6 +1,8 @@
 REPOROOT?=${shell git rev-parse --show-toplevel}
 -include dfiles.mk
 
+BETTERCWASM:=bettec/testapp.wasm
+
 DC?=dmd
 BIN:=bin
 SRC:=src
@@ -22,6 +24,7 @@ DFLAGS+=-I$(REPOROOT)
 DFLAGS+=-g
 
 
+
 ifndef DFILES
 dfiles.mk:
 	find . -name "*.d" -printf "DFILES+=%P\n" > $@
@@ -32,8 +35,10 @@ else
 
 all: $(MAIN)
 
-run: all
+run: all $(BETTERCWASM)
 	./$(MAIN) -f ../c/wasm-apps/testapp.wasm
+	./$(MAIN) -f betterc/testapp.wasm
+
 
 ddd: all
 	ddd ./$(MAIN) -f ../c/wasm-apps/testapp.wasm
@@ -53,9 +58,13 @@ info:
 	echo ${notdir $(DFILES)}
 	echo $(OBJS)
 
+$(BETTERCWASM):
+	make -c betterc
+
 clean:
 	rm -f $(MAIN)
 	rm -f $(OBJS)
+	make -c betterc clean
 
 proper: clean
 	rm -f dfiles.mk
