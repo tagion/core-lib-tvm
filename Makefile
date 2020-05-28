@@ -71,11 +71,11 @@ include revsion.mk
 include $(REPOROOT)/source.mk
 
 ifndef DFILES
-lib: dfiles.mk
+lib: dodi dfiles.mk
 	@echo "call lib"
 	$(MAKE) lib
 
-test: lib
+test: dodi lib
 	$(MAKE) test
 else
 lib: $(REVISION) $(LIBRARY)
