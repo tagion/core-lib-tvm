@@ -22,24 +22,15 @@ LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libvmlib.a
 #
 -include ddoc.mk
 
-BIN:=bin/
-#BUILD?=$(REPOROOT)/build
+BIN:=bin
 
 LIBNAME:=libiwavm.a
 LIBRARY:=$(BIN)/$(LIBNAME)
 
-
 WAYS+=${BIN}
-#WAYS+=${BUILD}
 
 SOURCE:=tagion/vm/iwasm
 PACKAGE:=${subst /,.,$(SOURCE)}
-# test33:
-# 	echo $(PACKAGE)
-# 	echo $(SOURCE)
-
-# tagion.vm.iwasm
-# bar:= $(subst $(space),$(comma),$(foo))
 REVISION:=$(REPOROOT)/$(SOURCE)/revision.di
 
 -include dstep.mk
@@ -50,26 +41,5 @@ TAGION_CORE:=$(REPOROOT)/../tagion_core/
 TAGION_DFILES:=${addprefix $(TAGION_CORE), $(TAGION_DFILES)}
 INC+=$(TAGION_CORE)
 INC+=$(REPOROOT)
-#INC+=$(P2PLIB)
-#INC+=$(SECP256K1ROOT)/src/
-#INC+=$(SECP256K1ROOT)/
-
-
-#External libaries
-#openssl
-#secp256k1 (elliptic curve signature library)
-#SECP256K1ROOT:=$(REPOROOT)/../secp256k1
-#SECP256K1LIB:=$(SECP256K1ROOT)/.libs/libsecp256k1.a
-
-#P2PLIB:=$(REPOROOT)/../libp2pDWrapper/
-#DCFLAGS+=-I$(P2PLIB)
-
-#LDCFLAGS+=$(LINKERFLAG)-lssl
-#LDCFLAGS+=$(LINKERFLAG)-lgmp
-#LDCFLAGS+=$(LINKERFLAG)-lcrypto
-
-#LDCFLAGS+=$(P2PLIB)bin/libp2p.a
-#LDCFLAGS+=$(P2PLIB)bin/libp2p_go.a
-#LDCFLAGS+=$(SECP256K1LIB)
 
 include unittest_setup.mk
