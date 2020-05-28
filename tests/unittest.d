@@ -1,2 +1,2 @@
 
-import tagion.vm.iwasm.IWasm;
+import tagion.vm.wamr.Wamr;

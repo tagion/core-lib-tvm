@@ -3,6 +3,7 @@ REPOROOT?=${shell git rev-parse --show-toplevel}
 -include $(REPOROOT)/localsetup.mk
 
 ifndef NOUNITTEST
+DCFLAGS+=-I$(REPOROOT)/tests/basic/d/
 DCFLAGS+=-unittest
 DCFLAGS+=-g
 DCFLAGS+=$(DEBUG)
@@ -15,8 +16,8 @@ SCRIPTROOT:=${REPOROOT}/scripts/
 
 
 include dstep_setup.mk
-IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
-LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libvmlib.a
+WAMR_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
+LIBS+=$(WAMR_ROOT)/wamr-compiler/build/libvmlib.a
 
 # DDOC Configuration
 #
@@ -29,7 +30,7 @@ LIBRARY:=$(BIN)/$(LIBNAME)
 
 WAYS+=${BIN}
 
-SOURCE:=tagion/vm/iwasm
+SOURCE:=tagion/vm/wamr
 PACKAGE:=${subst /,.,$(SOURCE)}
 REVISION:=$(REPOROOT)/$(SOURCE)/revision.di
 

@@ -1,4 +1,4 @@
-module tagion.vm.iwasm.IWasm;
+module tagion.vm.wamr.Wamr;
 
 import std.traits : isFunctionPointer, ParameterStorageClassTuple, ParameterStorageClass, ParameterTypeTuple,
 ReturnType, isBasicType, Unqual, isCallable, isPointer;
@@ -8,8 +8,8 @@ import std.typecons : Tuple;
 import std.string : toStringz, fromStringz;
 //import bin = std.bitmanip;
 import std.outbuffer;
-import tagion.vm.iwasm.c.wasm_export;
-import tagion.vm.iwasm.c.lib_export;
+import tagion.vm.wamr.c.wasm_export;
+import tagion.vm.wamr.c.lib_export;
 import tagion.TagionExceptions;
 import core.stdc.stdlib : calloc, free;
 
@@ -23,15 +23,15 @@ bool wasm_runtime_call_wasm (
     uint* argv);
 
 @safe
-class IWasmException : TagionException {
+class WamrException : TagionException {
     this(string msg, string file = __FILE__, size_t line = __LINE__ ) {
         super( msg, file, line );
     }
 }
-alias check=Check!IWasmException;
+alias check=Check!WamrException;
 
 @safe
-struct IWasmEngine {
+struct WamrEngine {
     private {
         RuntimeInitArgs runtime_args;
         // ubyte[] global_heap;
@@ -64,7 +64,7 @@ struct IWasmEngine {
         runtime_args.native_symbols = cast(NativeSymbol*)symbols.native_symbols.ptr;
 
         const runtime_init_success=wasm_runtime_full_init(&runtime_args);
-        .check(runtime_init_success, "Faild to initialize iwasm runtime");
+        .check(runtime_init_success, "Faild to initialize wamr runtime");
 
         wasm_module=wasm_runtime_load(
             wasm_code.ptr,
@@ -574,7 +574,7 @@ unittest {
     uint[] global_heap;
     global_heap.length=512 * 1024;
 
-    auto wasm_engine=IWasmEngine(
+    auto wasm_engine=WamrEngine(
         wasm_symbols,
         8092, // Stack size
         8092, // Heap size

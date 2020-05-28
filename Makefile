@@ -24,7 +24,7 @@ BUILD:=$(REPOROOT)/build
 OBJS=${DFILES:.d=.o}
 #OBJS=${addprefix $(BIN)/,$(OBJS)}
 
-LIBOBJ:=$(BIN)/libiwavm.o
+LIBOBJ:=$(BIN)/libwamr.o
 
 .SECONDARY: $(TOUCHHOOK)
 .PHONY: ddoc makeway

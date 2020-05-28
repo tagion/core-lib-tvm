@@ -7,8 +7,8 @@ module src.native_impl;
 
 import std.stdio;
 import std.math;
-import tagion.vm.iwasm.c.wasm_export;
-import tagion.vm.iwasm.c.wasm_runtime_common;
+import tagion.vm.wamr.c.wasm_export;
+import tagion.vm.wamr.c.wasm_runtime_common;
 
 //#include <stdio.h>
 //#include "bh_platform.h"
