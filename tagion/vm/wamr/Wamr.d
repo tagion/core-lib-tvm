@@ -2,6 +2,8 @@ module tagion.vm.wamr.Wamr;
 
 import std.traits : isFunctionPointer, ParameterStorageClassTuple, ParameterStorageClass, ParameterTypeTuple,
 ReturnType, isBasicType, Unqual, isCallable, isPointer;
+import std.meta : staticMap;
+import std.typecons : Typedef;
 
 import std.format;
 import std.typecons : Tuple;
@@ -14,13 +16,6 @@ import tagion.TagionExceptions;
 import core.stdc.stdlib : calloc, free;
 
 import std.stdio;
-
-extern(C)
-bool wasm_runtime_call_wasm (
-    wasm_exec_env_t exec_env,
-    wasm_function_inst_t function_,
-    uint argc,
-    uint* argv);
 
 @safe
 class WamrException : TagionException {
@@ -160,10 +155,10 @@ struct WamrEngine {
 
 @safe
 struct WasmSymbols {
-//    private {
+    private {
         NativeSymbol[] native_symbols;
         size_t[string] native_index;
-//    }
+    }
 
     void opCall(F)(string symbol, F func, string signature, void* attachment=null) if (isFunctionPointer!F) {
         .check(!(symbol in native_index), format("Native symbol %s is already definded", symbol));
@@ -175,6 +170,88 @@ struct WasmSymbols {
         };
         native_index[symbol]=native_symbols.length;
         native_symbols~=native_symbol;
+    }
+
+    alias WasmPtr=Typedef!(int, int.init, "wasm_ptr");
+
+    class WasmString(Char) {
+        const(Char*) ptr;
+        uint len;
+        WasmPtr wasm_ptr;
+        this(wasm_exec_env_t env, const(Char[]) str) {
+            ptr=str.ptr;
+            len=cast(uint)str.len;
+
+        }
+        ~this() {
+        }
+    }
+
+    template ToWasmType(T) {
+        static if (isBasicType!T) {
+            static if (isFloatingPoint!T) {
+                alias ToWasmType=T;
+            }
+            else static if (T.sizeof is int.sizeof) {
+                alias ToWasmType=int;
+            }
+            else static if (T.sizeof is long.sizeof) {
+                alias ToWasmType=long;
+            }
+            else static if (T.sizeof < int.sizeof) {
+                alias ToWasmType=int;
+            }
+            else static if (T.sizeof < long.sizeof) {
+                alias ToWasmType=long;
+            }
+        }
+        else static if (isSomeString!T) {
+            alias Char=Unqual!(ForeachType!T);
+        }
+        else {
+            static assert(0, format("%s is not supported", T.stringof));
+        }
+    }
+
+    alias ToWasmTypes(Params...) = staticMap!(ToWasmTypes, Params);
+
+    version(none)
+    template ConvertToWasmParams(string code, Params...) {
+        static if (Params.length == 0) {
+            alias ConvertToWasmParams=code;
+        }
+        else {
+            alias ConvertToWasmParams=void;
+
+        }
+    }
+
+    // static string convertToWasmParams(F) {
+    // }
+    void opCall(F)(string symbol, ref F func) if (isCallable!F) {
+        enum signature=paramSymbols!F;
+        static if (isFunction!F) {
+            opCall(symbols, func, signature, null);
+        }
+        else {
+            alias Returns=ReturnType!F;
+            alias Params=ParameterTupleType!F;
+
+            enum code=format(q{
+                    static extern(C) Returns caller(wasm_exec_env_t exec_env, %s) {
+                        const dg=cast(F)exec_env.attachment;
+                        static if (is(Returns == void)) {
+                            dg(%s);
+                        }
+                        else {
+                            dg(%s);
+                        }
+                    }
+                }, params, arguments, arguments);
+            pragma(msg, code);
+            //mixin(code);
+            //opCall(symbols, *caller, signature, func.ptr);
+        }
     }
 
     template Symbol(T) {
@@ -582,6 +659,9 @@ unittest {
         "env",
         wasm_code);
 
+    //
+    // Calling Wasm functions from D
+    //
     float ret_val;
 
     {
@@ -609,4 +689,8 @@ unittest {
     }
 
     writeln("Passed");
+}
+
+unittest {
+
 }

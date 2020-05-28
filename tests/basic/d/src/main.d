@@ -17,20 +17,6 @@ import std.file : fread=read;
 import std.outbuffer;
 import src.native_impl;
 
-float generate_float(int iteration, double seed1, float seed2) {
-    float ret=0;
-    writefln("iteration=%d seed1=%s seed2=%s", iteration, seed1, seed2);
-//    printf ("calling into WASM function: %s\n", __FUNCTION__);
-
-    for (int i=0; i<iteration; i++){
-
-        ret += 1.0f/seed1 + seed2;
-    }
-
-    return ret;
-}
-
-
 int main(string[] args) {
     immutable program=args[0];
     string wasm_path;

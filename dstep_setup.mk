@@ -12,7 +12,7 @@ WAMR_DIFILES:=${WAMR_HFILES_INCLUDE:.h=.di}
 WAMR_INC_INCLUDE:=$(WAMRROOT)/core/iwasm/include/
 WAMR_HFILES_INCLUDE:=${addprefix $(WAMR_INC_INCLUDE)/,$(WAMR_HFILES_INCLUDE)}
 
-WAMR_HFILES_COMMON:=wasm_runtime_common.h wasm_native.h
+WAMR_HFILES_COMMON:=wasm_runtime_common.h wasm_native.h wasm_exec_env.h
 WAMR_DIFILES+=${WAMR_HFILES_COMMON:.h=.di}
 WAMR_INC_COMMON:=$(WAMRROOT)/core/iwasm/common/
 WAMR_HFILES_COMMON:=${addprefix $(WAMR_INC_COMMON)/,$(WAMR_HFILES_COMMON)}
@@ -51,6 +51,7 @@ $(WAMR_DI_ROOT)/wasm_runtime_common.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAG
 
 $(WAMR_DI_ROOT)/wasm.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(WAMR_DI_ROOT)/wasm_native.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
+$(WAMR_DI_ROOT)/wasm_exec_env.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(WAMR_DI_ROOT)/wasm_runtime_common.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(WAMR_DI_ROOT)/wasm_runtime_common.di:DSTEP_CORRECT_2:=$(SCRIPTROOT)/wasm_runtime_common.pl
 #WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm
