@@ -26,6 +26,8 @@ class WamrException : TagionException {
 }
 alias check=Check!WamrException;
 
+alias wasm_ptr_t=Typedef!(int, int.init, "wasm_ptr");
+
 
 //alias ParamBuffer=outbuffer.OutBuffer;
 
@@ -147,7 +149,7 @@ class WamrEngine {
     }
 //    RetT call(RetT, Args...)(in Function f, Args args) {
     @trusted
-    RetT call(RetT, Args...)(Function f, Args args) {
+    RetT __call(RetT, Args...)(Function f, Args args) {
         auto param_buf=new ParamBuffer;
 //        out_buf.alignSize(int.sizeof);
         param_buf.reserve(SizeOf!Args);
@@ -177,7 +179,7 @@ class WamrEngine {
     }
 
     @trusted
-    RetT _call(RetT, Args...)(Function f, Args args) {
+    RetT call(RetT, Args...)(Function f, Args args) {
         static assert(Args.length !is 0,
             format("No arguments for is not allowed because it causes a segment faild inside the wamr"));
         auto param_buf=new ParamBuffer;
@@ -185,7 +187,6 @@ class WamrEngine {
         param_buf.reserve(SizeOf!WasmArgs);
         static foreach(i, WP; WasmArgs) {
             static if (hasMember!(WP, "wasm_sizeof")) {
-                pragma(msg, format("#### %s wasm_arg_%s;", WP.stringof, i));
                 mixin(format(
                         q{
                             %s wasm_arg_%s;
@@ -194,111 +195,41 @@ class WamrEngine {
         }
 
         foreach(i, arg; args) {
-            static if (WamrSymbols.isWasmBasicType!(Args[i])) {
-                writefln("Simple arg %d <%s> %s" , i, arg, typeof(arg).stringof);
-                param_buf.write(arg);
+            alias WasmType=TypedefType!(WasmArgs[i]);
+            static if (WamrSymbols.isWasmBasicType!(WasmType)) {
+                param_buf.write(cast(WasmType)arg);
             }
-            else {
-                writefln("wasmarg arg %d", i);
-                pragma(msg, "WasmParms[i] =", WasmArgs[i]);
-                alias WasmType=WasmArgs[i];
+            else static if (is(WasmType==class)) {
                 enum code=format(
                         q{
-                            static if (__traits(compiles, WasmType(arg))) {
-                                wasm_arg_%d = WasmType(arg);
-                            }
-                            else {
-                                wasm_arg_%d = new WasmType(arg);
-                            }
+                            wasm_arg_%d = new WasmType(arg);
                             wasm_arg_%d.write(param_buf);
-
-                        }, i, i, i);
-                pragma(msg, code);
+                        }, i, i);
+                //pragma(msg, code);
                 mixin(code);
-                // mixin(format(
-                //         q{
-                //             static if (__traits(compiles, WasmType(arg))) {
-                //                 wasm_arg_%d = WasmType(arg);
-                //             }
-                //             else {
-                //                 wasm_arg_%d = new WasmType(arg);
-                //             }
-                //             wasm_arg_%d.write(param_buf);
-                //             writefln("wasm_arg_%d.wasm_ptr=%s index=%d", wasm_arg_%d.wasm_ptr, wasm_arg_%d.index);
-                //         }, i, i, i, i, i, i, i));
-                // auto wasm_arg=WasmType(this, arg);
-                // wasm_arg.write(param_buf);
             }
-        }
-
-        import std.system : Endian;
-        import std.bitmanip;
-        auto buffer=param_buf.toBytes;
-        writefln("### buffer=%s", buffer);
-        //      size_t pos;
-        foreach(i, T; WasmArgs) {
-            static if (WamrSymbols.isWasmBasicType!(Args[i])) {
-                writefln("arg %d %s", i, buffer.read!(T, Endian.littleEndian));
-                    //        pos+=T.sizeof;
-                    }
             else {
-
-                // pos=+int.sizeof;
-                writefln("arg \t%d %s size", i, buffer.read!(int, Endian.littleEndian));
-                writefln("arg \t%d %s wasm_ptr", i, buffer.read!(int, Endian.littleEndian));
-                // pos=+int.sizeof;
+                static assert(0, format(""));
             }
-
         }
 
-//        alias WasmArgs_2=WasmSymbols.toWasmTypes!(char[], int);
-//        alias Func=typeof(_call);
-//        alias WasmArgs_2=WasmSymbols.toWasmTypes!(ParameterTypeTuple!(typeof(_call)));
-//        alias WasmArgs=Args;
-        pragma(msg, WasmArgs);
-//        pragma(msg, Alias!Args);
-        pragma(msg, Args);
-        enum symbols=WamrSymbols.paramsSymbols!(Args)()~WamrSymbols.listSymbols!(RetT);
-        pragma(msg, symbols); //WasmSymbols.paramsSymbols!(Args)()~);
+        //enum symbols=WamrSymbols.paramsSymbols!(Args)()~WamrSymbols.listSymbols!(RetT);
         auto success=wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
-//        auto success=wasm_runtime_call_wasm(exec_env, f.func, 2, param_buf.ptr);
         .check(success, format("Wasm function failed %s %s %s\n%s",
                 RetT.stringof, f.name, Args.stringof,
                 fromStringz(wasm_runtime_get_exception(module_inst))));
         foreach(i, arg; args) {
-            static if (hasMember!(WasmArgs[i], "collect")) {
-                writefln("collect");
+            alias WasmType=TypedefType!(WasmArgs[i]);
+
+            static if (hasMember!(WasmType[i], "collect")) {
                 enum code=format(
                         q{
                             wasm_arg_%d.collect;
                         }, i);
-                pragma(msg, code);
+                //pragma(msg, code);
                 mixin(code);
-                // arg.collect;
-                // mixin(format(
-                //         q{
-                //             wasm_arg_%d.collect;
-                //         }, i));
             }
         }
-        //import std.bitmanip;
-        buffer=param_buf.toBytes;
-//        size_t pos;
-        foreach(i, T; WasmArgs) {
-            static if (WamrSymbols.isWasmBasicType!(Args[i])) {
-                writefln("return %d %s", i, buffer.read!(T,Endian.littleEndian));
-                //        pos+=T.sizeof;
-            }
-            else {
-
-                // pos=+int.sizeof;
-                writefln("return \t%d %d size", i, buffer.read!(int, Endian.littleEndian));
-                writefln("return \t%d %d wasm_ptr", i, buffer.read!(int, Endian.littleEndian));
-                // pos=+int.sizeof;
-            }
-
-        }
-
         static if (!is(RetT==void)) {
              return *cast(RetT*)param_buf.ptr;
         }
@@ -327,8 +258,6 @@ class WamrEngine {
         wasm_runtime_deinstantiate(module_inst);
         wasm_runtime_destroy();
     }
-
-    alias wasm_ptr_t=Typedef!(int, int.init, "wasm_ptr");
 
     class WasmArray(BaseU) {
         private {
@@ -363,13 +292,13 @@ class WamrEngine {
             pragma(msg, "this.env.module_inst ", typeof(module_inst));
             wasm_ptr=malloc(size, ptr);
             //wasm_ptr=wasm_runtime_module_malloc(module_inst, size, cast(void**)&ptr);
-            writefln("malloc wasm_ptr=%s", wasm_ptr);
+            writefln("malloc wasm_ptr=%s %x %x", wasm_ptr, d_str.ptr, str.ptr);
             ptr[0..size]=str;
         }
         @trusted
         void collect() {
             if (d_str !is null) {
-                d_str=ptr[0..size];
+                d_str[0..size]=ptr[0..size];
             }
         }
         @trusted
@@ -408,9 +337,10 @@ struct WamrSymbols {
 
 
     template toWasmType(T) {
-        static if (isBasicType!T) {
-            static if (isFloatingPoint!T) {
-                alias toWasmType=T;
+        alias BaseT=TypedefType!T;
+        static if (isBasicType!BaseT) {
+            static if (isFloatingPoint!BaseT) {
+                alias toWasmType=BaseT;
             }
             else static if (T.sizeof is int.sizeof) {
                 alias toWasmType=int;
@@ -1008,7 +938,7 @@ unittest {
         auto char_array=wasm_engine.lookup("char_array");
         char[] array;
         array.length=32;
-        const ret=wasm_engine._call!int(char_array, array);
+        const ret=wasm_engine.call!int(char_array, array);
         writefln("ret = %d %s", ret, array);
 
 
@@ -1017,15 +947,15 @@ unittest {
     {
         auto ref_char_array=wasm_engine.lookup("ref_char_array");
         char[] array;
-        const ret=wasm_engine._call!int(ref_char_array, array);
+        const ret=wasm_engine.call!int(ref_char_array, array);
         writefln("ret = %d", ret);
     }
 
     {
         auto const_char_array=wasm_engine.lookup("const_char_array");
         const(char[]) array="Hello";
-        auto ret=wasm_engine._call!int(const_char_array, array);
-        writefln("ret = %d %d", ret, wasm_engine.call!int(get_result,0));
+        auto ret=wasm_engine.call!int(const_char_array, array);
+        writefln("ret = %d %d %s", ret, wasm_engine.call!int(get_result,0), array);
     }
 
 //        "env");
