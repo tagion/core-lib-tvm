@@ -229,6 +229,25 @@ class WamrEngine {
             }
         }
 
+        import std.system : Endian;
+        import std.bitmanip;
+        auto buffer=param_buf.toBytes;
+        writefln("### buffer=%s", buffer);
+        //      size_t pos;
+        foreach(i, T; WasmArgs) {
+            static if (WamrSymbols.isWasmBasicType!(Args[i])) {
+                writefln("arg %d %s", i, buffer.read!(T, Endian.littleEndian));
+                    //        pos+=T.sizeof;
+                    }
+            else {
+                writefln("arg \t%d %s wasm_ptr", i, buffer.read!(int, Endian.littleEndian));
+                // pos=+int.sizeof;
+                writefln("arg \t%d %s size", i, buffer.read!(int, Endian.littleEndian));
+                // pos=+int.sizeof;
+            }
+
+        }
+
 //        alias WasmArgs_2=WasmSymbols.toWasmTypes!(char[], int);
 //        alias Func=typeof(_call);
 //        alias WasmArgs_2=WasmSymbols.toWasmTypes!(ParameterTypeTuple!(typeof(_call)));
@@ -238,7 +257,8 @@ class WamrEngine {
         pragma(msg, Args);
         enum symbols=WamrSymbols.paramsSymbols!(Args)()~WamrSymbols.listSymbols!(RetT);
         pragma(msg, symbols); //WasmSymbols.paramsSymbols!(Args)()~);
-        auto success=wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
+//        auto success=wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
+        auto success=wasm_runtime_call_wasm(exec_env, f.func, 2, param_buf.ptr);
         .check(success, format("Wasm function failed %s %s %s\n%s",
                 RetT.stringof, f.name, Args.stringof,
                 fromStringz(wasm_runtime_get_exception(module_inst))));
@@ -258,40 +278,26 @@ class WamrEngine {
                 //         }, i));
             }
         }
+        //import std.bitmanip;
+        buffer=param_buf.toBytes;
+//        size_t pos;
+        foreach(i, T; WasmArgs) {
+            static if (WamrSymbols.isWasmBasicType!(Args[i])) {
+                writefln("return %d %s", i, buffer.read!(T,Endian.littleEndian));
+                //        pos+=T.sizeof;
+            }
+            else {
+                writefln("return \t%d %d wasm_ptr", i, buffer.read!(int, Endian.littleEndian));
+                // pos=+int.sizeof;
+                writefln("return \t%d %d size", i, buffer.read!(int, Endian.littleEndian));
+                // pos=+int.sizeof;
+            }
 
+        }
 
         static if (!is(RetT==void)) {
              return *cast(RetT*)param_buf.ptr;
         }
-
-//        pragma(msg, "WasmParams=",WasmParams);
-//        pragma(msg, "WasmParams_2=",WasmParams_2.stringof);
-//        alias T=WasmParams_1[0];
-//        pragma(msg, "T=", T);
-//        pragma(msg, "T=", WasmSymbols.toWasmType!(char[]));
-
-//        pragma(msg, "WasmParams_1[0]=",WasmParams_1[0]);
-
-//        pragma(msg, "Func=",Func.stringof);
-//        pragma(msg, "WasmParams_2=",WasmParams_2.stringof);
-//        pragma(msg, ");
-
-        // out_buf.alignSize(int.sizeof);
-        // out_buf.reserve(SizeOf!Args);
-        // foreach(i, arg; args) {
-        //     out_buf.write(arg);
-        // }
-        // assert(out_buf.offset % int.sizeof == 0);
-//        auto args_buf=cast(uint[])(out_buf.toBytes);
-        // auto success=wasm_runtime_call_wasm(exec_env, f.func, cast(uint)args_buf.length, args_buf.ptr);
-        // .check(success, format("Wasm function failed %s %s(%s)\n%s",
-        //         RetT.stringof, f.name, Args.stringof,
-        //         fromStringz(wasm_runtime_get_exception(module_inst))));
-//         static if (!is(RetT==void)) {
-//             RetT r;
-//             return r;
-// //             return *cast(RetT*)args_buf.ptr;
-//         }
     }
 
     @trusted
@@ -364,8 +370,14 @@ class WamrEngine {
         }
         @trusted
         void write(ParamBuffer buf) {
-            buf.write(cast(TypedefType!wasm_ptr_t)wasm_ptr);
+            const x=cast(TypedefType!wasm_ptr_t)wasm_ptr;
+            writefln("ParamBuffer ptr=%d size=%d x=%d", wasm_ptr, size, x);
             buf.write(size);
+            buf.write(cast(TypedefType!wasm_ptr_t)wasm_ptr);
+
+            int y=-7704;
+            buf.write(y);
+
         }
         @trusted
         ~this() {
@@ -984,22 +996,30 @@ unittest {
         global_heap, // Global heap
         wasm_code);
 
+    auto get_result=wasm_engine.lookup("get_result");
+    writefln("get_result = %d", wasm_engine.call!int(get_result,0));
+
+
     {
         auto char_array=wasm_engine.lookup("char_array");
         char[] array;
-        wasm_engine._call!int(char_array, array);
+        const ret=wasm_engine._call!int(char_array, array);
+        writefln("ret = %d %d", ret, wasm_engine.call!int(get_result,0));
+
     }
     version(none)
     {
         auto ref_char_array=wasm_engine.lookup("ref_char_array");
         char[] array;
-        wasm_engine._call!int(ref_char_array, array);
+        const ret=wasm_engine._call!int(ref_char_array, array);
+        writefln("ret = %d", ret);
     }
 
     {
         auto const_char_array=wasm_engine.lookup("const_char_array");
         const(char[]) array="Hello";
-        wasm_engine._call!int(const_char_array, array);
+        auto ret=wasm_engine._call!int(const_char_array, array);
+        writefln("ret = %d %d", ret, wasm_engine.call!int(get_result,0));
     }
 
 //        "env");
