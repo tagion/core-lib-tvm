@@ -179,9 +179,9 @@ class WamrEngine {
     @trusted
     RetT _call(RetT, Args...)(Function f, Args args) {
         auto param_buf=new ParamBuffer;
-        alias WasmParams=WamrSymbols.toWasmTypes!(Args);
-        param_buf.reserve(SizeOf!WasmParams);
-        static foreach(i, WP; WasmParams) {
+        alias WasmArgs=WamrSymbols.toWasmTypes!(Args);
+        param_buf.reserve(SizeOf!WasmArgs);
+        static foreach(i, WP; WasmArgs) {
             static if (hasMember!(WP, "wasm_sizeof")) {
                 pragma(msg, format("#### %s wasm_arg_%s;", WP.stringof, i));
                 mixin(format(
@@ -198,8 +198,8 @@ class WamrEngine {
             }
             else {
                 writefln("wasmarg arg %d", i);
-                pragma(msg, "WasmParms[i] =", WasmParams[i]);
-                alias WasmType=WasmParams[i];
+                pragma(msg, "WasmParms[i] =", WasmArgs[i]);
+                alias WasmType=WasmArgs[i];
                 enum code=format(
                         q{
                             static if (__traits(compiles, WasmType(arg))) {
@@ -209,8 +209,8 @@ class WamrEngine {
                                 wasm_arg_%d = new WasmType(arg);
                             }
                             wasm_arg_%d.write(param_buf);
-                            writeln(wasm_arg_%d.wasm_ptr, wasm_arg_%d.index);
-                        }, i, i, i, i, i);
+
+                        }, i, i, i);
                 pragma(msg, code);
                 mixin(code);
                 // mixin(format(
@@ -229,11 +229,11 @@ class WamrEngine {
             }
         }
 
-//        alias WasmParams_2=WasmSymbols.toWasmTypes!(char[], int);
+//        alias WasmArgs_2=WasmSymbols.toWasmTypes!(char[], int);
 //        alias Func=typeof(_call);
-//        alias WasmParams_2=WasmSymbols.toWasmTypes!(ParameterTypeTuple!(typeof(_call)));
-//        alias WasmParams=Args;
-        pragma(msg, WasmParams);
+//        alias WasmArgs_2=WasmSymbols.toWasmTypes!(ParameterTypeTuple!(typeof(_call)));
+//        alias WasmArgs=Args;
+        pragma(msg, WasmArgs);
 //        pragma(msg, Alias!Args);
         pragma(msg, Args);
         enum symbols=WamrSymbols.paramsSymbols!(Args)()~WamrSymbols.listSymbols!(RetT);
@@ -243,13 +243,19 @@ class WamrEngine {
                 RetT.stringof, f.name, Args.stringof,
                 fromStringz(wasm_runtime_get_exception(module_inst))));
         foreach(i, arg; args) {
-            static if (hasMember!(Args[i], "collect")) {
+            static if (hasMember!(WasmArgs[i], "collect")) {
                 writefln("collect");
-                arg.collect;
-                mixin(format(
+                enum code=format(
                         q{
                             wasm_arg_%d.collect;
-                        }, i));
+                        }, i);
+                pragma(msg, code);
+                mixin(code);
+                // arg.collect;
+                // mixin(format(
+                //         q{
+                //             wasm_arg_%d.collect;
+                //         }, i));
             }
         }
 
