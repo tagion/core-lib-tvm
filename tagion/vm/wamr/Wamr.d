@@ -178,6 +178,8 @@ class WamrEngine {
 
     @trusted
     RetT _call(RetT, Args...)(Function f, Args args) {
+        static assert(Args.length !is 0,
+            format("No arguments for is not allowed because it causes a segment faild inside the wamr"));
         auto param_buf=new ParamBuffer;
         alias WasmArgs=WamrSymbols.toWasmTypes!(Args);
         param_buf.reserve(SizeOf!WasmArgs);
@@ -240,9 +242,10 @@ class WamrEngine {
                     //        pos+=T.sizeof;
                     }
             else {
-                writefln("arg \t%d %s wasm_ptr", i, buffer.read!(int, Endian.littleEndian));
+
                 // pos=+int.sizeof;
                 writefln("arg \t%d %s size", i, buffer.read!(int, Endian.littleEndian));
+                writefln("arg \t%d %s wasm_ptr", i, buffer.read!(int, Endian.littleEndian));
                 // pos=+int.sizeof;
             }
 
@@ -257,8 +260,8 @@ class WamrEngine {
         pragma(msg, Args);
         enum symbols=WamrSymbols.paramsSymbols!(Args)()~WamrSymbols.listSymbols!(RetT);
         pragma(msg, symbols); //WasmSymbols.paramsSymbols!(Args)()~);
-//        auto success=wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
-        auto success=wasm_runtime_call_wasm(exec_env, f.func, 2, param_buf.ptr);
+        auto success=wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
+//        auto success=wasm_runtime_call_wasm(exec_env, f.func, 2, param_buf.ptr);
         .check(success, format("Wasm function failed %s %s %s\n%s",
                 RetT.stringof, f.name, Args.stringof,
                 fromStringz(wasm_runtime_get_exception(module_inst))));
@@ -287,9 +290,10 @@ class WamrEngine {
                 //        pos+=T.sizeof;
             }
             else {
-                writefln("return \t%d %d wasm_ptr", i, buffer.read!(int, Endian.littleEndian));
+
                 // pos=+int.sizeof;
                 writefln("return \t%d %d size", i, buffer.read!(int, Endian.littleEndian));
+                writefln("return \t%d %d wasm_ptr", i, buffer.read!(int, Endian.littleEndian));
                 // pos=+int.sizeof;
             }
 
@@ -370,14 +374,8 @@ class WamrEngine {
         }
         @trusted
         void write(ParamBuffer buf) {
-            const x=cast(TypedefType!wasm_ptr_t)wasm_ptr;
-            writefln("ParamBuffer ptr=%d size=%d x=%d", wasm_ptr, size, x);
             buf.write(size);
             buf.write(cast(TypedefType!wasm_ptr_t)wasm_ptr);
-
-            int y=-7704;
-            buf.write(y);
-
         }
         @trusted
         ~this() {
@@ -981,11 +979,17 @@ unittest {
 }
 
 unittest {
+    extern(C) static int __wasm_assert(wasm_exec_env_t exec_env, int x, int y) {
+        writefln("__wasm_assert %d %d", x, y);
+        .check(0, format("__wasm_assert x=%d y=%d", x, y));
+        return -1;
+    }
     import std.stdio;
     import std.file : fread=read, exists;
     enum testapp_file="tests/advanced/test_array.wasm";
     immutable wasm_code = cast(immutable(ubyte[]))testapp_file.fread();
     WamrSymbols wasm_symbols;
+    wasm_symbols("__assert", &__wasm_assert, "(ii)i");
     uint[] global_heap;
     global_heap.length=512 * 1024;
 
@@ -1003,8 +1007,10 @@ unittest {
     {
         auto char_array=wasm_engine.lookup("char_array");
         char[] array;
+        array.length=32;
         const ret=wasm_engine._call!int(char_array, array);
-        writefln("ret = %d %d", ret, wasm_engine.call!int(get_result,0));
+        writefln("ret = %d %s", ret, array);
+
 
     }
     version(none)
