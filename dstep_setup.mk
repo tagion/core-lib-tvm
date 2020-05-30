@@ -37,6 +37,7 @@ WAMR_FLAGS+=--package $(WAMR_PACKAGE)
 #WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_native
 
 $(WAMR_DI_ROOT)/wasm_export.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_native
+$(WAMR_DI_ROOT)/wasm_export.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_exec_env
 $(WAMR_DI_ROOT)/wasm_export.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).lib_export
 
 $(WAMR_DI_ROOT)/wasm_native.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).lib_export
@@ -44,9 +45,15 @@ $(WAMR_DI_ROOT)/wasm_native.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm
 
 $(WAMR_DI_ROOT)/lib_export.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm
 
+$(WAMR_DI_ROOT)/wasm_exec_env.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm
+$(WAMR_DI_ROOT)/wasm_exec_env.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_runtime_common
+$(WAMR_DI_ROOT)/wasm_exec_env.di:WAMR_FLAGS+=--global-import tagion.vm.wamr.platform.platform
+
+
 $(WAMR_DI_ROOT)/wasm_runtime_common.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_export
 $(WAMR_DI_ROOT)/wasm_runtime_common.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).lib_export
 $(WAMR_DI_ROOT)/wasm_runtime_common.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm
+$(WAMR_DI_ROOT)/wasm_runtime_common.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_exec_env
 
 
 $(WAMR_DI_ROOT)/wasm.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
@@ -54,6 +61,7 @@ $(WAMR_DI_ROOT)/wasm_native.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(WAMR_DI_ROOT)/wasm_exec_env.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(WAMR_DI_ROOT)/wasm_runtime_common.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(WAMR_DI_ROOT)/wasm_runtime_common.di:DSTEP_CORRECT_2:=$(SCRIPTROOT)/wasm_runtime_common.pl
+$(WAMR_DI_ROOT)/wasm_export.di:DSTEP_CORRECT_2:=$(SCRIPTROOT)/wasm_export.pl
 #WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm
 
 # Change c-array to pointer

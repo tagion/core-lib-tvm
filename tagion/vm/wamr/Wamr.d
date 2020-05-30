@@ -1,17 +1,18 @@
 module tagion.vm.wamr.Wamr;
 
 import std.traits : isFunctionPointer, ParameterStorageClassTuple, ParameterStorageClass, ParameterTypeTuple,
-ReturnType, isBasicType, Unqual, isCallable, isPointer;
-import std.meta : staticMap;
-import std.typecons : Typedef;
-
+ReturnType, isBasicType, Unqual, isCallable, isPointer, isFunction, isFloatingPoint, isSomeString, ForeachType, hasMember;
+import std.meta : staticMap, Alias, AliasSeq;
+import std.typecons : Typedef, TypedefType;
+import std.array : join;
 import std.format;
 import std.typecons : Tuple;
 import std.string : toStringz, fromStringz;
 //import bin = std.bitmanip;
-import std.outbuffer;
+import outbuffer=std.outbuffer;
 import tagion.vm.wamr.c.wasm_export;
 import tagion.vm.wamr.c.lib_export;
+import tagion.vm.wamr.c.wasm_exec_env;
 import tagion.TagionExceptions;
 import core.stdc.stdlib : calloc, free;
 
@@ -25,8 +26,38 @@ class WamrException : TagionException {
 }
 alias check=Check!WamrException;
 
+
+//alias ParamBuffer=outbuffer.OutBuffer;
+
+//version(none)
+class ParamBuffer : outbuffer.OutBuffer {
+    // override void write(T)(T x) if (__traits(compiles, super.write(x))) {
+    //     super.write(x);
+    // }
+    // version(none)
+    // void write(T)(T x) {
+    //     static if (hasMember!(T, "_append")) {
+    //         x._append(this);
+    //     }
+    //     else {
+    //         super.write(x);
+    //     }
+    // }
+    this() {
+//        super();
+        alignSize(int.sizeof);
+    }
+    uint size() const pure {
+        return cast(uint)(offset/int.sizeof);
+    }
+    uint* ptr() const {
+        return cast(uint*)data.ptr;
+    }
+}
+
 @safe
-struct WamrEngine {
+class WamrEngine {
+
     private {
         RuntimeInitArgs runtime_args;
         // ubyte[] global_heap;
@@ -40,12 +71,12 @@ struct WamrEngine {
 
     @trusted
     this(
-        const WasmSymbols symbols,
+        const WamrSymbols symbols,
         const uint heap_size,
         const uint stack_size,
         ref uint[] global_heap,
-        string module_name,
         immutable(ubyte[]) wasm_code,
+        string module_name="env",
         const uint error_buf_size=128) {
         // global_heap.length=global_heap_size;
         error_buf.length=error_buf_size;
@@ -104,7 +135,12 @@ struct WamrEngine {
             enum SizeOf=0;
         }
         else {
-            enum _S=Args[0].sizeof;
+            static if (__traits(compiles, Args[0].wasm_sizeof)) {
+                enum _S=Args[0].wasm_sizeof;
+            }
+            else {
+                enum _S=Args[0].sizeof;
+            }
             enum S=(_S % int.sizeof == 0)?_S:_S+int.sizeof;
             enum SizeOf=S+SizeOf!(Args[1..$]);
         }
@@ -112,32 +148,156 @@ struct WamrEngine {
 //    RetT call(RetT, Args...)(in Function f, Args args) {
     @trusted
     RetT call(RetT, Args...)(Function f, Args args) {
-        auto out_buf=new OutBuffer;
-        out_buf.alignSize(int.sizeof);
-        out_buf.reserve(SizeOf!Args);
+        auto param_buf=new ParamBuffer;
+//        out_buf.alignSize(int.sizeof);
+        param_buf.reserve(SizeOf!Args);
         foreach(i, arg; args) {
-            out_buf.write(arg);
+            alias BaseT=TypedefType!(Args[i]);
+            static if (__traits(compiles, param_buf.write(cast(BaseT)arg))) {
+                writefln("%d %s %s", i, arg, Args[i].stringof);
+                param_buf.write(cast(BaseT)arg);
+            }
+            // static if (hasMembers(Args[i], "Arg") && is(TypedefType!(Args[i]) == Args[i].Arg)) {
+            //     writefln("%d %s %s", i, arg, Args[i].stringof);
+            //     param_buf.write(cast(TypedefType!(Args[i])arg);
+            // }
+            else {
+                arg.write(param_buf);
+            }
         }
-        assert(out_buf.offset % int.sizeof == 0);
-        auto args_buf=cast(uint[])(out_buf.toBytes);
-        auto success=wasm_runtime_call_wasm(exec_env, f.func, cast(uint)args_buf.length, args_buf.ptr);
+        assert(param_buf.offset % int.sizeof == 0);
+//        auto args_buf=cast(uint[])(param_buf.toBytes);
+        auto success=wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
         .check(success, format("Wasm function failed %s %s(%s)\n%s",
                 RetT.stringof, f.name, Args.stringof,
                 fromStringz(wasm_runtime_get_exception(module_inst))));
         static if (!is(RetT==void)) {
-             return *cast(RetT*)args_buf.ptr;
+             return *cast(RetT*)param_buf.ptr;
         }
     }
 
     @trusted
-    int malloc(T)(uint size, ref T ptr) if (isPointer!T) {
-        return wasm_runtime_module_malloc(module_inst, size, cast(void**)&ptr);
+    RetT _call(RetT, Args...)(Function f, Args args) {
+        auto param_buf=new ParamBuffer;
+        alias WasmParams=WamrSymbols.toWasmTypes!(Args);
+        param_buf.reserve(SizeOf!WasmParams);
+        static foreach(i, WP; WasmParams) {
+            static if (hasMember!(WP, "wasm_sizeof")) {
+                pragma(msg, format("#### %s wasm_arg_%s;", WP.stringof, i));
+                mixin(format(
+                        q{
+                            %s wasm_arg_%s;
+                        }, WP.stringof, i));
+            }
+        }
+
+        foreach(i, arg; args) {
+            static if (WamrSymbols.isWasmBasicType!(Args[i])) {
+                writefln("Simple arg %d <%s> %s" , i, arg, typeof(arg).stringof);
+                param_buf.write(arg);
+            }
+            else {
+                writefln("wasmarg arg %d", i);
+                pragma(msg, "WasmParms[i] =", WasmParams[i]);
+                alias WasmType=WasmParams[i];
+                enum code=format(
+                        q{
+                            static if (__traits(compiles, WasmType(arg))) {
+                                wasm_arg_%d = WasmType(arg);
+                            }
+                            else {
+                                wasm_arg_%d = new WasmType(arg);
+                            }
+                            wasm_arg_%d.write(param_buf);
+                            writeln(wasm_arg_%d.wasm_ptr, wasm_arg_%d.index);
+                        }, i, i, i, i, i);
+                pragma(msg, code);
+                mixin(code);
+                // mixin(format(
+                //         q{
+                //             static if (__traits(compiles, WasmType(arg))) {
+                //                 wasm_arg_%d = WasmType(arg);
+                //             }
+                //             else {
+                //                 wasm_arg_%d = new WasmType(arg);
+                //             }
+                //             wasm_arg_%d.write(param_buf);
+                //             writefln("wasm_arg_%d.wasm_ptr=%s index=%d", wasm_arg_%d.wasm_ptr, wasm_arg_%d.index);
+                //         }, i, i, i, i, i, i, i));
+                // auto wasm_arg=WasmType(this, arg);
+                // wasm_arg.write(param_buf);
+            }
+        }
+
+//        alias WasmParams_2=WasmSymbols.toWasmTypes!(char[], int);
+//        alias Func=typeof(_call);
+//        alias WasmParams_2=WasmSymbols.toWasmTypes!(ParameterTypeTuple!(typeof(_call)));
+//        alias WasmParams=Args;
+        pragma(msg, WasmParams);
+//        pragma(msg, Alias!Args);
+        pragma(msg, Args);
+        enum symbols=WamrSymbols.paramsSymbols!(Args)()~WamrSymbols.listSymbols!(RetT);
+        pragma(msg, symbols); //WasmSymbols.paramsSymbols!(Args)()~);
+        auto success=wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
+        .check(success, format("Wasm function failed %s %s %s\n%s",
+                RetT.stringof, f.name, Args.stringof,
+                fromStringz(wasm_runtime_get_exception(module_inst))));
+        foreach(i, arg; args) {
+            static if (hasMember!(Args[i], "collect")) {
+                writefln("collect");
+                arg.collect;
+                mixin(format(
+                        q{
+                            wasm_arg_%d.collect;
+                        }, i));
+            }
+        }
+
+
+        static if (!is(RetT==void)) {
+             return *cast(RetT*)param_buf.ptr;
+        }
+
+//        pragma(msg, "WasmParams=",WasmParams);
+//        pragma(msg, "WasmParams_2=",WasmParams_2.stringof);
+//        alias T=WasmParams_1[0];
+//        pragma(msg, "T=", T);
+//        pragma(msg, "T=", WasmSymbols.toWasmType!(char[]));
+
+//        pragma(msg, "WasmParams_1[0]=",WasmParams_1[0]);
+
+//        pragma(msg, "Func=",Func.stringof);
+//        pragma(msg, "WasmParams_2=",WasmParams_2.stringof);
+//        pragma(msg, ");
+
+        // out_buf.alignSize(int.sizeof);
+        // out_buf.reserve(SizeOf!Args);
+        // foreach(i, arg; args) {
+        //     out_buf.write(arg);
+        // }
+        // assert(out_buf.offset % int.sizeof == 0);
+//        auto args_buf=cast(uint[])(out_buf.toBytes);
+        // auto success=wasm_runtime_call_wasm(exec_env, f.func, cast(uint)args_buf.length, args_buf.ptr);
+        // .check(success, format("Wasm function failed %s %s(%s)\n%s",
+        //         RetT.stringof, f.name, Args.stringof,
+        //         fromStringz(wasm_runtime_get_exception(module_inst))));
+//         static if (!is(RetT==void)) {
+//             RetT r;
+//             return r;
+// //             return *cast(RetT*)args_buf.ptr;
+//         }
     }
 
     @trusted
-    void free(int memory_index) {
+    wasm_ptr_t malloc(T)(uint size, ref T ptr) if (isPointer!T) {
+        wasm_ptr_t result=wasm_runtime_module_malloc(module_inst, size, cast(void**)&ptr);
+        return result;
+    }
+
+    @trusted
+    void free(wasm_ptr_t memory_index) {
         if(memory_index) {
-            wasm_runtime_module_free(module_inst, memory_index);
+            wasm_runtime_module_free(module_inst, cast(TypedefType!wasm_ptr_t)memory_index);
         }
     }
 
@@ -151,10 +311,68 @@ struct WamrEngine {
         wasm_runtime_deinstantiate(module_inst);
         wasm_runtime_destroy();
     }
+
+    alias wasm_ptr_t=Typedef!(int, int.init, "wasm_ptr");
+
+    class WasmArray(BaseU) {
+        private {
+            BaseU* ptr;
+            uint size;
+            wasm_ptr_t wasm_ptr;
+            //   wasm_module_inst_t module_inst;
+//            wasm_exec_env_t env;
+            BaseU[] d_str;
+        }
+        enum symbol="*~"; // Pointer and len
+        enum wasm_sizeof=wasm_ptr.sizeof+size.sizeof;
+        static uint index;
+        @trusted
+        this(const(BaseU[]) str) {
+            index++;
+            //module_inst=eng.module_inst;
+            //ptr=str.ptr;
+            size=cast(uint)str.length;
+            //this.env=env;
+            pragma(msg, "this.env.module_inst ", typeof(module_inst));
+            wasm_ptr=malloc(size, ptr);
+            writefln("malloc wasm_ptr=%s", wasm_ptr);
+            ptr[0..size]=str;
+        }
+        @trusted
+        this(BaseU[] str) {
+            index++;
+            //module_inst=eng.module_inst;
+            d_str=str;
+            size=cast(uint)str.length;
+            pragma(msg, "this.env.module_inst ", typeof(module_inst));
+            wasm_ptr=malloc(size, ptr);
+            //wasm_ptr=wasm_runtime_module_malloc(module_inst, size, cast(void**)&ptr);
+            writefln("malloc wasm_ptr=%s", wasm_ptr);
+            ptr[0..size]=str;
+        }
+        @trusted
+        void collect() {
+            if (d_str !is null) {
+                d_str=ptr[0..size];
+            }
+        }
+        @trusted
+        void write(ParamBuffer buf) {
+            buf.write(cast(TypedefType!wasm_ptr_t)wasm_ptr);
+            buf.write(size);
+        }
+        @trusted
+        ~this() {
+            writefln("free wasm_ptr=%s", wasm_ptr);
+            if (wasm_ptr != 0) {
+                free(wasm_ptr);
+            }
+        }
+    }
 }
 
 @safe
-struct WasmSymbols {
+struct WamrSymbols {
     private {
         NativeSymbol[] native_symbols;
         size_t[string] native_index;
@@ -172,48 +390,47 @@ struct WasmSymbols {
         native_symbols~=native_symbol;
     }
 
-    alias WasmPtr=Typedef!(int, int.init, "wasm_ptr");
 
-    class WasmString(Char) {
-        const(Char*) ptr;
-        uint len;
-        WasmPtr wasm_ptr;
-        this(wasm_exec_env_t env, const(Char[]) str) {
-            ptr=str.ptr;
-            len=cast(uint)str.len;
-
-        }
-        ~this() {
-        }
-    }
-
-    template ToWasmType(T) {
+    template toWasmType(T) {
         static if (isBasicType!T) {
             static if (isFloatingPoint!T) {
-                alias ToWasmType=T;
+                alias toWasmType=T;
             }
             else static if (T.sizeof is int.sizeof) {
-                alias ToWasmType=int;
+                alias toWasmType=int;
             }
             else static if (T.sizeof is long.sizeof) {
-                alias ToWasmType=long;
+                alias toWasmType=long;
             }
             else static if (T.sizeof < int.sizeof) {
-                alias ToWasmType=int;
+                alias toWasmType=int;
             }
             else static if (T.sizeof < long.sizeof) {
-                alias ToWasmType=long;
+                alias toWasmType=long;
             }
         }
-        else static if (isSomeString!T) {
-            alias Char=Unqual!(ForeachType!T);
+        else static if (is(T:U[], U) && isBasicType!U) {
+            alias BaseU=Unqual!(U);
+            alias toWasmType=WamrEngine.WasmArray!BaseU;
         }
         else {
             static assert(0, format("%s is not supported", T.stringof));
         }
     }
 
-    alias ToWasmTypes(Params...) = staticMap!(ToWasmTypes, Params);
+    alias isWasmBasicType(T)=isBasicType!T;
+
+    version(none)
+    template toWasmTypes(Params...) {
+        static if (Params.length == 0) {
+            alias toWasmTypes=AliasSeq!();
+        }
+        else {
+            alias toWasmTypes=AliasSeq!(toWasmType!(Params[0]), toWasmTypes!(Params[1..$]));
+        }
+    }
+
+    alias toWasmTypes(Params...) = staticMap!(toWasmType, Params);
 
     version(none)
     template ConvertToWasmParams(string code, Params...) {
@@ -226,28 +443,51 @@ struct WasmSymbols {
         }
     }
 
-    // static string convertToWasmParams(F) {
-    // }
-    void opCall(F)(string symbol, ref F func) if (isCallable!F) {
+    static string convertToWasmParams(Params...)() {
+        string[] result;
+        static foreach(i, P; Params) {
+            result~=format("%s param_%s", P.stringof, i);
+        }
+        return result.join(", ");
+    }
+
+    static string convertToWasmArguments(Params...)() {
+        alias WasmParams=toWasmTypes!Params;
+        string[] result;
+        static foreach(i, P; Params) {
+            result~=format("param_%s", i);
+        }
+        return result.join(", ");
+    }
+
+    void opCall(F)(string symbol, F func) if (isCallable!F) {
         enum signature=paramSymbols!F;
+        pragma(msg, signature);
         static if (isFunction!F) {
+
             opCall(symbols, func, signature, null);
         }
         else {
             alias Returns=ReturnType!F;
-            alias Params=ParameterTupleType!F;
-
+            alias Params=ParameterTypeTuple!F;
+            pragma(msg, "Param :", Params);
+            alias WasmReturns=toWasmTypes!Returns;
+            enum params=convertToWasmParams!Params();
+            enum arguments=convertToWasmArguments!(Params);
+            enum convert="// here goes the convert code";
             enum code=format(q{
-                    static extern(C) Returns caller(wasm_exec_env_t exec_env, %s) {
+                    static extern(C) %s caller(wasm_exec_env_t exec_env, %s) {
+                        alias F=%s;
                         const dg=cast(F)exec_env.attachment;
+                        %s
                         static if (is(Returns == void)) {
                             dg(%s);
                         }
                         else {
-                            dg(%s);
+                            return dg(%s);
                         }
                     }
-                }, params, arguments, arguments);
+                }, WasmReturns.stringof, params, F.stringof, convert, arguments, arguments);
             pragma(msg, code);
             //mixin(code);
             //opCall(symbols, *caller, signature, func.ptr);
@@ -268,30 +508,39 @@ struct WasmSymbols {
         else static if (is(T==double)) {
             enum Symbol="F";
         }
-        else static if (is(T==string)) {
-            enum Symbol="$";
+        else static if (__traits(compiles, T.symbol)) {
+            enum Symbol=T.symbol;
         }
         else {
             static assert(0, format("No wasm symbol found for %s", T.stringof));
         }
     }
 
+    static string listSymbols(Args...)() {
+        alias WasmParams=toWasmTypes!Args;
+        string result;
+        static foreach(i, P; WasmParams) {
+            result~=Symbol!(WasmParams[i]);
+        }
+        return result;
+
+    }
+
+    static string paramsSymbols(Args...)() {
+        return "("~listSymbols!(Args)()~")";
+    }
+
     static string paramSymbols(F)() if (isCallable!F) {
         alias Params=ParameterTypeTuple!F;
-        string result;
-        result~='(';
-        static foreach(i, P; Params) {
-            result~=Symbol!(Params[i]);
-        }
-        result~=')';
-
+        string result=paramsSymbols!(Params);
         alias Returns=ReturnType!F;
         static if (!is(Returns==void)) {
-            results~=Symbol!(Returns);
+            alias WasmReturns=toWasmTypes!Returns;
+            result~=Symbol!(WasmReturns);
         }
         return result;
     }
-
+/+
     version(none) {
         @trusted
             struct Environment(F) if(isCallable!F) {
@@ -635,6 +884,7 @@ struct WasmSymbols {
             }
         }
     }
++/
 }
 
 unittest {
@@ -643,7 +893,7 @@ unittest {
     import std.file : fread=read, exists;
     enum testapp_file="tests/basic/c/wasm-apps/testapp.wasm";
     immutable wasm_code = cast(immutable(ubyte[]))testapp_file.fread();
-    WasmSymbols wasm_symbols;
+    WamrSymbols wasm_symbols;
     wasm_symbols("intToStr", &intToStr, "(i*~i)i");
     wasm_symbols("get_pow", &get_pow, "(ii)i");
     wasm_symbols("calculate_native", &calculate_native, "(iii)i");
@@ -651,13 +901,13 @@ unittest {
     uint[] global_heap;
     global_heap.length=512 * 1024;
 
-    auto wasm_engine=WamrEngine(
+    auto wasm_engine=new WamrEngine(
         wasm_symbols,
         8092, // Stack size
         8092, // Heap size
         global_heap, // Global heap
-        "env",
-        wasm_code);
+        wasm_code,
+        "env");
 
     //
     // Calling Wasm functions from D
@@ -692,5 +942,62 @@ unittest {
 }
 
 unittest {
+    int result;
+    int add(int x) {
+        result+=x;
+        return 2*result;
+    }
 
+    pragma(msg, typeof(&add));
+    WamrSymbols wasm_symbols;
+    wasm_symbols("add", &add);
+
+
+    string text(int x, float y, string str) {
+        result++;
+        return format("%s %s %s %d", x, y, str,  result);
+    }
+
+    wasm_symbols("text", &text);
+
+}
+
+unittest {
+    import std.stdio;
+    import std.file : fread=read, exists;
+    enum testapp_file="tests/advanced/test_array.wasm";
+    immutable wasm_code = cast(immutable(ubyte[]))testapp_file.fread();
+    WamrSymbols wasm_symbols;
+    uint[] global_heap;
+    global_heap.length=512 * 1024;
+
+    auto wasm_engine=new WamrEngine(
+        wasm_symbols,
+        8092, // Stack size
+        8092, // Heap size
+        global_heap, // Global heap
+        wasm_code);
+
+    {
+        auto char_array=wasm_engine.lookup("char_array");
+        char[] array;
+        wasm_engine._call!int(char_array, array);
+    }
+    version(none)
+    {
+        auto ref_char_array=wasm_engine.lookup("ref_char_array");
+        char[] array;
+        wasm_engine._call!int(ref_char_array, array);
+    }
+
+    {
+        auto const_char_array=wasm_engine.lookup("const_char_array");
+        const(char[]) array="Hello";
+        wasm_engine._call!int(const_char_array, array);
+    }
+
+//        "env");
+    // wasm_symbols("intToStr", &intToStr, "(i*~i)i");
+    // wasm_symbols("get_pow", &get_pow, "(ii)i");
+    // wasm_symbols("calculate_native", &calculate_native, "(iii)i");
 }
