@@ -1,7 +1,4 @@
-REPOROOT?=${shell git rev-parse --show-toplevel}
-include $(REPOROOT)/git.mk
-REVNO?=$(GIT_REVNO)
-HASH?=$(GIT_HASH)
+include git.mk
 
 
 ifndef $(VERBOSE)
@@ -19,7 +16,7 @@ include setup.mk
 #BIN:=$(REPOROOT)/bin/
 LDCFLAGS+=$(LINKERFLAG)-L$(BIN)
 ARFLAGS:=rcs
-BUILD:=$(REPOROOT)/build
+BUILD?=$(REPOROOT)/build
 #SRC?=$(REPOROOT)
 OBJS=${DFILES:.d=.o}
 #OBJS=${addprefix $(BIN)/,$(OBJS)}
@@ -44,6 +41,8 @@ HELPER:=help-main
 
 help-master: help-main
 	@echo "make lib       : Builds $(LIBNAME) library"
+	@echo
+	@echo "make test      : Run the unittests"
 	@echo
 
 help-main:
@@ -136,7 +135,7 @@ $(LIBRARY): ${DFILES}
 	@echo "########################################################################################"
 	@echo "## Library $@"
 	@echo "########################################################################################"
-	${PRECMD}$(DC) ${INCFLAGS} $(DCFLAGS) $(DFILES) -c -lib -of$(LIBRARY)
+	${PRECMD}$(DC) ${INCFLAGS} $(DCFLAGS) $(DFILES) -c $(OUTPUT)$(LIBRARY)
 
 CLEANER+=clean
 
