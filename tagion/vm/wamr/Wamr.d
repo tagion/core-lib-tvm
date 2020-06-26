@@ -13,14 +13,14 @@ import outbuffer=std.outbuffer;
 import tagion.vm.wamr.c.wasm_export;
 import tagion.vm.wamr.c.lib_export;
 import tagion.vm.wamr.c.wasm_exec_env;
-import tagion.TagionExceptions;
+import tagion.basic.TagionExceptions;
 import core.stdc.stdlib : calloc, free;
 
 import std.stdio;
 
 @safe
 class WamrException : TagionException {
-    this(string msg, string file = __FILE__, size_t line = __LINE__ ) {
+    this(string msg, string file = __FILE__, size_t line = __LINE__ ) pure {
         super( msg, file, line );
     }
 }

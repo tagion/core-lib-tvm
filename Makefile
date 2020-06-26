@@ -1,6 +1,5 @@
 include git.mk
 
-
 ifndef $(VERBOSE)
 PRECMD?=@
 endif
@@ -29,12 +28,21 @@ LIBOBJ:=$(BIN)/libwamr.o
 
 INCFLAGS=${addprefix -I,${INC}}
 
+LIBRARY:=$(BIN)/$(LIBNAME)
+LIBOBJ:=${LIBRARY:.a=.o};
+
+REVISION:=$(REPOROOT)/$(SOURCE)/revision.di
 .PHONY: $(REVISION)
 .SECONDARY: .touch
 
 ifdef COV
 RUNFLAGS+=--DRT-covopt="merge:1 dstpath:reports"
 DCFLAGS+=-cov
+endif
+
+
+ifndef DFILES
+include $(REPOROOT)/source.mk
 endif
 
 HELPER:=help-main
@@ -59,6 +67,7 @@ help-main:
 	@echo
 
 info:
+	@echo "WAYS    =$(WAYS)"
 	@echo "DFILES  =$(DFILES)"
 	@echo "OBJS    =$(OBJS)"
 	@echo "LDCFLAGS=$(LDCFLAGS)"
@@ -67,11 +76,10 @@ info:
 
 include revsion.mk
 
-include $(REPOROOT)/source.mk
+include source.mk
 
 ifndef DFILES
 lib: dodi dfiles.mk
-	@echo "call lib"
 	$(MAKE) lib
 
 test: dodi lib
@@ -128,9 +136,6 @@ ddoc: $(DDOCMODULES)
 	@echo "## compile "$(notdir $<)
 	${PRECMD}$(DC) ${INCFLAGS} $(DCFLAGS) $< -c $(OUTPUT)$@
 
-test33:$(OBJS)
-
-
 $(LIBRARY): ${DFILES}
 	@echo "########################################################################################"
 	@echo "## Library $@"
@@ -145,7 +150,7 @@ clean:
 	rm -f $(UNITTEST) $(UNITTEST).o
 
 proper: $(CLEANER)
-	rm -fR ${WAYS}
+	rm -fR $(WAYS)
 
 $(PROGRAMS):
 	$(DC) $(DCFLAGS) $(LDCFLAGS) $(OUTPUT) $@

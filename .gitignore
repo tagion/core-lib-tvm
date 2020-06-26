@@ -8,3 +8,4 @@ core
 dfiles.mk
 revision.di
 bin
+tagion/vm/wamr/c/
