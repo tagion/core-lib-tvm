@@ -1,5 +1,4 @@
-REPOROOT?=${shell git rev-parse --show-toplevel}
-
+include git.mk
 -include $(REPOROOT)/localsetup.mk
 
 ifndef NOUNITTEST
@@ -40,7 +39,6 @@ TAGION_BASIC:=$(REPOROOT)/../tagion_basic/
 TAGION_UTILS:=$(REPOROOT)/../tagion_utils/
 TAGION_CORE:=$(REPOROOT)/../tagion_core/
 
--include core_dfiles.mk
 include tagion_dfiles.mk
 
 INC+=$(TAGION_BASIC)

@@ -18,3 +18,13 @@ UTILS_DFILES+=tagion/utils/Random.d
 UTILS_DFILES:=$(addprefix $(TAGION_UTILS)/,$(UTILS_DFILES))
 
 TAGION_DFILES+=$(UTILS_DFILES)
+
+HIBON_DFILES+=tagion/hibon/HiBON.d
+HIBON_DFILES+=tagion/hibon/Document.d
+HIBON_DFILES+=tagion/hibon/HiBONBase.d
+HIBON_DFILES+=tagion/hibon/HiBONJSON.d
+HIBON_DFILES+=tagion/hibon/HiBONException.d
+HIBON_DFILES+=tagion/hibon/HiBONRecord.d
+HIBON_DFILES+=tagion/hibon/BigNumber.d
+HIBON_DFILES+=tagion/hibon/HiBONtoText.d
+HIBON_DFILES:=$(addprefix $(TAGION_HIBON)/,$(UTILS_DFILES))
