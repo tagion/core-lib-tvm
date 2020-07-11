@@ -2,6 +2,8 @@ REPOROOT?=${shell git rev-parse --show-toplevel}
 
 include cfiles.mk
 
+WASMAPPROOT:=wasm-apps
+
 #CC:=clang
 CC:=gcc
 SRC:=src
@@ -11,7 +13,7 @@ OBJS:=$(CFILES:.c=.o)
 CFILES:=${addprefix $(SRC)/,$(CFILES)}
 OBJS:=${addprefix $(BIN)/,$(OBJS)}
 
-MAIN=basic
+MAIN?=basic
 
 IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
 #LIBS+=$(IWASM_ROOT)/samples/basic/libvmlib.a
@@ -58,7 +60,7 @@ CFLAGS+=${addprefix -I$(IWASM_ROOT)/,$(IWASM_INCS)}
 LDFLAGS+=-lpthread
 LDFLAGS+=-lm
 
-all: $(BIN) $(MAIN)
+all: $(BIN) $(MAIN) wasm
 
 run: all
 	./$(MAIN) -f wasm-apps/testapp.wasm
@@ -72,6 +74,10 @@ $(BIN):
 $(BIN)/%.o: $(SRC)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+wasm:
+	$(MAKE) -C $(WASMAPPROOT)
+
 clean:
 	rm -fR $(BIN)
 	rm -f $(MAIN)
+	$(MAKE) -C $(WASMAPPROOT) $@
