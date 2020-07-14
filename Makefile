@@ -76,7 +76,6 @@ info:
 
 include revsion.mk
 
-include source.mk
 
 ifndef DFILES
 lib: dodi dfiles.mk
@@ -92,7 +91,6 @@ test: $(UNITTEST)
 
 $(UNITTEST):
 	$(PRECMD)$(DC) $(DCFLAGS) $(INCFLAGS) $(DFILES) $(TESTDCFLAGS) $(OUTPUT)$@
-#$(LDCFLAGS)
 
 endif
 
