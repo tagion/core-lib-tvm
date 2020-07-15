@@ -4,7 +4,7 @@ dodi: $(WAMR_DIFILES)
 vpath %.h ${WAMR_INC}
 
 $(WAMR_DI_ROOT)/%.di: %.h makeway
-	dstep $< -o $@ $(WAMR_FLAGS)
+	dstep $(DSTEP_FLAGS) $< -o $@ $(WAMR_FLAGS)
 	$(DSTEP_CORRECT) $@
 	$(DSTEP_CORRECT_2) $@
 

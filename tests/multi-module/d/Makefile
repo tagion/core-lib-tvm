@@ -4,17 +4,16 @@ REPOROOT?=${shell git rev-parse --show-toplevel}
 BETTERCWASM:=bettec/testapp.wasm
 
 DC?=dmd
-BIN:=bin
 SRC:=src
-
-IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
+BIN:=bin
 
 OBJS:=${DFILES:.d=.o}
 OBJS:=${notdir $(OBJS)}
 OBJS:=${addprefix $(BIN)/,$(OBJS)}
 
 
-LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libvmlib.a
+IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
+LIBS+=$(REPOROOT)/wamr/build/libvmlib.a
 
 MAIN:=multi-module
 

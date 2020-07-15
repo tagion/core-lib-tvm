@@ -29,11 +29,11 @@ import std.string : fromStringz;
 // }
 
 extern(C)
-bool module_reader_cb(const(char)* module_name, ubyte** p_buffer, uint* p_size) {
-    const _module_name=fromStringz(module_name);
-    auto path=buildPath("wasm-apps", _module_name);
+bool module_reader_cb(string module_name, ubyte** p_buffer, uint* p_size) {
+    //const _module_name=fromStringz(module_name);
+    auto path=buildPath("wasm-apps", module_name).setExtension("wasm");
     // writefln("Before %s", path);
-    path=path.setExtension("wasm");
+    //path=path.setExtension("wasm");
     // writefln("After %s", path);
     //immutable wasm_file_path = build_module_path(module_name);
     bool ok;
@@ -127,7 +127,7 @@ int main(string[] args) {
     /* set module reader and destroyer */
 
 //    version(none)
-    //   wasm_runtime_set_module_reader(&module_reader_cb, &module_destroyer_cb);
+    wasm_runtime_set_module_reader(&module_reader_cb, &module_destroyer_cb);
 //#endif
 
     /* load WASM byte buffer from WASM bin file */

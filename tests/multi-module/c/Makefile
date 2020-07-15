@@ -7,7 +7,7 @@ WASMAPPROOT:=wasm-apps
 #CC:=clang
 CC:=gcc
 SRC:=src
-BIN=bin
+BIN:=bin
 
 OBJS:=$(CFILES:.c=.o)
 CFILES:=${addprefix $(SRC)/,$(CFILES)}
@@ -16,8 +16,8 @@ OBJS:=${addprefix $(BIN)/,$(OBJS)}
 MAIN?=basic
 
 IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
-#LIBS+=$(IWASM_ROOT)/samples/basic/libvmlib.a
-LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libvmlib.a
+LIBS+=$(REPOROOT)/wamr/build/libvmlib.a
+
 #LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libaotclib.a
 CFLAGS+=-fPIC
 CFLAGS+=-g
@@ -27,11 +27,14 @@ CFLAGS+=-DBH_FREE=wasm_runtime_free
 CFLAGS+=-DBH_MALLOC=wasm_runtime_malloc
 CFLAGS+=-DBH_PLATFORM_LINUX
 CFLAGS+=-DBUILD_TARGET_X86_64
-CFLAGS+=-DWASM_ENABLE_AOT=1
+CFLAGS+=-DWASM_ENABLE_BULK_MEMORY=0
 CFLAGS+=-DWASM_ENABLE_FAST_INTERP=0
 CFLAGS+=-DWASM_ENABLE_INTERP=1
 CFLAGS+=-DWASM_ENABLE_LIBC_BUILTIN=1
 CFLAGS+=-DWASM_ENABLE_LIBC_WASI=1
+CFLAGS+=-DWASM_ENABLE_MINI_LOADER=0
+CFLAGS+=-DWASM_ENABLE_MULTI_MODULE=1
+CFLAGS+=-DWASM_ENABLE_SHARED_MEMORY=0
 
 CFLAGS+=-Wall
 CFLAGS+=-Wextra
@@ -59,6 +62,7 @@ CFLAGS+=${addprefix -I$(IWASM_ROOT)/,$(IWASM_INCS)}
 
 LDFLAGS+=-lpthread
 LDFLAGS+=-lm
+LDFLAGS+=$(REPOROOT)/wamr/build/CMakeFiles/multi_module.dir/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.c.o
 
 all: $(BIN) $(MAIN) wasm
 
