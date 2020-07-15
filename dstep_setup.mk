@@ -84,12 +84,8 @@ $(WAMR_DI_ROOT)/wasm.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(WAMR_DI_ROOT)/wasm_native.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(WAMR_DI_ROOT)/wasm_exec_env.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
 $(WAMR_DI_ROOT)/wasm_runtime_common.di:DSTEP_CORRECT:=$(SCRIPTROOT)/dtype_stdint.pl
+
 $(WAMR_DI_ROOT)/wasm_runtime_common.di:DSTEP_CORRECT_2:=$(SCRIPTROOT)/wasm_runtime_common.pl
 $(WAMR_DI_ROOT)/wasm_export.di:DSTEP_CORRECT_2:=$(SCRIPTROOT)/wasm_export.pl
-#WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm
-
-# Change c-array to pointer
-#WAMRa2p:=${SCRIPTROOT}/wasm_array2pointer.pl
-#WAMRa2p:=echo ${SCRIPTROOT}/wasm_array2pointer.pl
 
 WAYS+=$(WAMR_DI_ROOT)

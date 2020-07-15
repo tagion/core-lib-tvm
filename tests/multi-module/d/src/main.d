@@ -2,7 +2,7 @@ module src.main;
 
 import tagion.vm.wamr.c.wasm_export;
 import tagion.vm.wamr.c.lib_export;
-import tagion.vm.wamr.c.wasm_runtime_common;
+//import tagion.vm.wamr.c.wasm_runtime_common;
 
 import tagion.vm.wamr.revision;
 
@@ -29,9 +29,9 @@ import std.string : fromStringz;
 // }
 
 extern(C)
-bool module_reader_cb(string module_name, ubyte** p_buffer, uint* p_size) {
-    //const _module_name=fromStringz(module_name);
-    auto path=buildPath("wasm-apps", module_name).setExtension("wasm");
+bool module_reader_cb(const(char)* module_name, ubyte** p_buffer, uint* p_size) {
+    const _module_name=fromStringz(module_name);
+    auto path=buildPath("wasm-apps", _module_name).setExtension("wasm");
     // writefln("Before %s", path);
     //path=path.setExtension("wasm");
     // writefln("After %s", path);
@@ -176,23 +176,23 @@ int main(string[] args) {
 
     /* call some functions of mC */
     writeln("\n----------------------------------------");
-    writeln(`call "C", it will return 0xc:i32, ===> `);
+    write(`call "C", it will return 0xc:i32, ===> `);
     wasm_application_execute_func(module_inst, "C", 0, &wasm_args[0]);
-    writeln(`call "call_B", it will return 0xb:i32, ===> `);
+    write(`call "call_B", it will return 0xb:i32, ===> `);
     wasm_application_execute_func(module_inst, "call_B", 0, &wasm_args[0]);
-    writeln(`call "call_A", it will return 0xa:i32, ===>`);
+    write(`call "call_A", it will return 0xa:i32, ===> `);
     wasm_application_execute_func(module_inst, "call_A", 0, &wasm_args[0]);
 
     /* call some functions of mB */
-    writeln(`call "mB.B", it will return 0xb:i32, ===>`);
+    write(`call "mB.B", it will return 0xb:i32, ===> `);
     wasm_application_execute_func(module_inst, "$mB$B", 0, &wasm_args[0]);
-    writeln(`call "mB.call_A", it will return 0xa:i32, ===>`);
+    write(`call "mB.call_A", it will return 0xa:i32, ===> `);
     wasm_application_execute_func(module_inst, "$mB$call_A", 0, &wasm_args[0]);
 
     /* call some functions of mA */
-    writeln(`call "mA.A", it will return 0xa:i32, ===>`);
+    write(`call "mA.A", it will return 0xa:i32, ===> `);
     wasm_application_execute_func(module_inst, "$mA$A", 0, &wasm_args[0]);
-    writeln("----------------------------------------\n");
+    writeln("----------------------------------------");
 
     writeln("- wasm_runtime_deinstantiate");
     wasm_runtime_deinstantiate(module_inst);
