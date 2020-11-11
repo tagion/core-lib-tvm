@@ -9,3 +9,4 @@ dfiles.mk
 revision.di
 bin
 tagion/vm/wamr/c/
+tests/basic/d/basic
