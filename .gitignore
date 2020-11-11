@@ -10,3 +10,5 @@ revision.di
 bin
 tagion/vm/wamr/c/
 tests/basic/d/basic
+*.parked
+multi-module

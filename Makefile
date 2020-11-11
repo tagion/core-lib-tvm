@@ -52,6 +52,10 @@ help-master: help-main
 	@echo
 	@echo "make test      : Run the unittests"
 	@echo
+	@echo "make subdate   : If the repo been clone with out --recursive then run the"
+	@echo
+	@echo "make spull     : All the submodules can be pull by"
+	@echo
 
 help-main:
 	@echo "Usage "
@@ -141,6 +145,12 @@ $(LIBRARY): ${DFILES}
 	${PRECMD}$(DC) ${INCFLAGS} $(DCFLAGS) $(DFILES) -c $(OUTPUT)$(LIBRARY)
 
 CLEANER+=clean
+
+subdate:
+	git submodule update --init --recursive
+
+spull:
+	git pull --recurse-submodules
 
 clean:
 	rm -f $(LIBRARY)
