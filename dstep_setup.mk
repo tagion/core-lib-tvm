@@ -1,4 +1,4 @@
-WAMRROOT:=${REPOROOT}/../wasm-micro-runtime/
+WAMRROOT:=${REPOROOT}/wasm-micro-runtime/
 
 DSTEP_FLAGS+=-DBH_FREE=wasm_runtime_free
 DSTEP_FLAGS+=-DBH_MALLOC=wasm_runtime_malloc
