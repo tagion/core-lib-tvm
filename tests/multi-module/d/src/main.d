@@ -28,10 +28,12 @@ import std.string : fromStringz;
 //     return path.toString;
 // }
 
+string wasm_path="wasm-apps";
+
 extern(C)
 bool module_reader_cb(const(char)* module_name, ubyte** p_buffer, uint* p_size) {
     const _module_name=fromStringz(module_name);
-    auto path=buildPath("wasm-apps", _module_name).setExtension("wasm");
+    auto path=buildPath(wasm_path, _module_name).setExtension("wasm");
     // writefln("Before %s", path);
     //path=path.setExtension("wasm");
     // writefln("After %s", path);
@@ -74,7 +76,7 @@ int main(string[] args) {
         std.getopt.config.caseSensitive,
         std.getopt.config.bundling,
         "version",   "display the version",  &version_switch,
-//        "inputfile|f","Parh of wasm file", &wasm_path,
+        "inputfile|f","Path of wasm path", &wasm_path,
         );
     if (version_switch) {
         writefln("version %s", REVNO);

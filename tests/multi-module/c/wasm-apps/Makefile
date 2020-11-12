@@ -4,7 +4,8 @@ include cfiles.mk
 
 OBJS:=$(SRC:.c=.wasm)
 
-CC:=$(REPOROOT)/../wasi-sdk/build/llvm/bin/clang
+#CC:=$(REPOROOT)/../wasi-sdk/build/llvm/bin/clang
+CLANG:=/opt/wasi-sdk/bin/clang
 
 CFLAGS+=--target=wasm32
 
@@ -14,7 +15,7 @@ LDFLAGS+=-Wl,--no-entry,--allow-undefined,--export-all
 all: $(OBJS)
 
 %.wasm:%.c
-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o$@
+	$(CLANG) $(CFLAGS) $(LDFLAGS) $< -o$@
 
 clean:
 	rm -f $(OBJS)
