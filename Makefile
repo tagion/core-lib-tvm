@@ -8,12 +8,16 @@ DC?=dmd
 AR?=ar
 include $(REPOROOT)/command.mk
 
+
+include $(MAINROOT)/dinclude_setup.mk
+DCFLAGS+=$(addprefix -I$(MAINROOT)/,$(DINC))
+
 include setup.mk
 
 -include $(REPOROOT)/dfiles.mk
 
-#BIN:=$(REPOROOT)/bin/
-LDCFLAGS+=$(LINKERFLAG)-L$(BIN)
+#BIN:=bin/
+LDCFLAGS+=$(LINKERFLAG)-L$(BINDIR)
 ARFLAGS:=rcs
 BUILD?=$(REPOROOT)/build
 #SRC?=$(REPOROOT)
@@ -28,8 +32,8 @@ LIBOBJ:=$(BIN)/libwamr.o
 
 INCFLAGS=${addprefix -I,${INC}}
 
-LIBRARY:=$(BIN)/$(LIBNAME)
-LIBOBJ:=${LIBRARY:.a=.o};
+#LIBRARY:=$(BIN)/$(LIBNAME)
+#LIBOBJ:=${LIBRARY:.a=.o};
 
 REVISION:=$(REPOROOT)/$(SOURCE)/revision.di
 .PHONY: $(REVISION)
@@ -45,9 +49,9 @@ ifndef DFILES
 include $(REPOROOT)/source.mk
 endif
 
-HELPER:=help-main
+HELP+=help-main
 
-help-master: help-main
+help: $(HELP)
 	@echo "make lib       : Builds $(LIBNAME) library"
 	@echo
 	@echo "make test      : Run the unittests"
@@ -73,28 +77,30 @@ help-main:
 info:
 	@echo "WAYS    =$(WAYS)"
 	@echo "DFILES  =$(DFILES)"
-	@echo "OBJS    =$(OBJS)"
-	@echo "LDCFLAGS=$(LDCFLAGS)"
-	@echo "DCFLAGS =$(DCFLAGS)"
-	@echo "INCFLAGS=$(INCFLAGS)"
+#	@echo "OBJS    =$(OBJS)"
+	@echo "LDCFLAGS =$(LDCFLAGS)"
+	@echo "DCFLAGS  =$(DCFLAGS)"
+	@echo "INCFLAGS =$(INCFLAGS)"
+	@echo "GIT_REVNO=$(GIT_REVNO)"
+	@echo "GIT_HASH =$(GIT_HASH)"
 
-include revsion.mk
-
+include $(REPOROOT)/revision.mk
 
 ifndef DFILES
 lib: dodi dfiles.mk
 	$(MAKE) lib
 
-test: dodi lib
-	$(MAKE) test
+unittest: dfiles.mk
+	$(MAKE) unittest
 else
 lib: $(REVISION) $(LIBRARY)
 
-test: $(UNITTEST)
+unittest: $(UNITTEST)
 	export LD_LIBRARY_PATH=$(LIBBRARY_PATH); $(UNITTEST)
 
-$(UNITTEST):
-	$(PRECMD)$(DC) $(DCFLAGS) $(INCFLAGS) $(DFILES) $(TESTDCFLAGS) $(OUTPUT)$@
+$(UNITTEST): $(LIBS) $(WAYS)
+	$(PRECMD)$(DC) $(DCFLAGS) $(INCFLAGS) $(DFILES) $(TESTDCFLAGS) $(LDCFLAGS) $(OUTPUT)$@
+#$(LDCFLAGS)
 
 endif
 
@@ -122,21 +128,7 @@ $(eval $(foreach dir,$(WAYS),$(call MAKEWAY,$(dir))))
 $(DDOCMODULES): $(DFILES)
 	$(PRECMD)echo $(DFILES) | scripts/ddocmodule.pl > $@
 
-ddoc: $(DDOCMODULES)
-	@echo "########################################################################################"
-	@echo "## Creating DDOC"
-	${PRECMD}ln -fs ../candydoc ddoc
-	$(PRECMD)$(DC) ${INCFLAGS} $(DDOCFLAGS) $(DDOCFILES) $(DFILES) $(DD)$(DDOCROOT)
-
-%.o: %.c
-	@echo "########################################################################################"
-	@echo "## compile "$(notdir $<)
-	$(PRECMD)gcc  -m64 $(CFLAGS) -c $< -o $@
-
-%.o: %.d
-	@echo "########################################################################################"
-	@echo "## compile "$(notdir $<)
-	${PRECMD}$(DC) ${INCFLAGS} $(DCFLAGS) $< -c $(OUTPUT)$@
+#include $(DDOCBUILDER)
 
 $(LIBRARY): ${DFILES}
 	@echo "########################################################################################"
@@ -162,3 +154,6 @@ proper: $(CLEANER)
 
 $(PROGRAMS):
 	$(DC) $(DCFLAGS) $(LDCFLAGS) $(OUTPUT) $@
+
+install-llvm:
+	$(REPOROOT)/wasm-micro-runtime/wamr-compiler/build_llvm.sh

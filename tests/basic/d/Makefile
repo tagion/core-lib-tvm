@@ -7,7 +7,7 @@ DC?=dmd
 BIN:=bin
 SRC:=src
 
-IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
+IWASM_ROOT:=$(REPOROOT)/wasm-micro-runtime/
 
 OBJS:=${DFILES:.d=.o}
 OBJS:=${notdir $(OBJS)}

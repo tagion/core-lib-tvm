@@ -15,7 +15,7 @@ OBJS:=${addprefix $(BIN)/,$(OBJS)}
 
 MAIN?=basic
 
-IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
+IWASM_ROOT:=$(REPOROOT)/wasm-micro-runtime/
 LIBS+=$(REPOROOT)/wamr/build/libvmlib.a
 
 #LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libaotclib.a

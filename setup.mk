@@ -12,10 +12,10 @@ DCFLAGS+=$(DIP1000) # Should support scope c= new C; // is(C == class)
 DCFLAGS+=$(DIP25)
 
 SCRIPTROOT:=${REPOROOT}/scripts/
+WAMR_ROOT:=$(REPOROOT)/wasm-micro-runtime/
 
 
 include dstep_setup.mk
-WAMR_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
 LIBS+=$(WAMR_ROOT)/wamr-compiler/build/libvmlib.a
 
 # DDOC Configuration

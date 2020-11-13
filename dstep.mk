@@ -12,3 +12,6 @@ CLEANER+=clean-dstep
 
 clean-dstep:
 	rm -f $(WAMR_DIFILES)
+
+info-dstep:
+	@echo $(WAMR_DIFILES)

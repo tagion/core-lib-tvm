@@ -12,7 +12,7 @@ OBJS:=${notdir $(OBJS)}
 OBJS:=${addprefix $(BIN)/,$(OBJS)}
 
 
-IWASM_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
+IWASM_ROOT:=$(REPOROOT)/wasm-micro-runtime/
 LIBS+=$(REPOROOT)/wamr/build/libvmlib.a
 
 MAIN:=multi-module
