@@ -15,7 +15,7 @@ SCRIPTROOT:=${REPOROOT}/scripts/
 
 
 include dstep_setup.mk
-WAMR_ROOT:=$(REPOROOT)/../wasm-micro-runtime/
+WAMR_ROOT:=$(REPOROOT)/wasm-micro-runtime/
 LIBS+=$(WAMR_ROOT)/wamr-compiler/build/libvmlib.a
 
 # DDOC Configuration
