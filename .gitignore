@@ -15,3 +15,5 @@ multi-module
 tests/basic/c/basic
 tests/wasmd/
 wamr/build/
+wamr/CMakeCache.txt
+wamr/CMakeFiles
