@@ -1,4 +1,4 @@
-WAMRROOT:=${REPOROOT}/../wasm-micro-runtime/
+#WAMR_ROOT:=${REPOROOT}/../wasm-micro-runtime/
 
 DSTEP_FLAGS+=-DBH_FREE=wasm_runtime_free
 DSTEP_FLAGS+=-DBH_MALLOC=wasm_runtime_malloc
@@ -22,22 +22,22 @@ DSTEP_CORRECT_2:=true
 WAMR_OS:=linux
 WAMR_HFILES_INCLUDE:=aot_export.h  wasm_export.h lib_export.h
 WAMR_DIFILES:=${WAMR_HFILES_INCLUDE:.h=.di}
-WAMR_INC_INCLUDE:=$(WAMRROOT)/core/iwasm/include/
+WAMR_INC_INCLUDE:=$(WAMR_ROOT)/core/iwasm/include/
 WAMR_HFILES_INCLUDE:=${addprefix $(WAMR_INC_INCLUDE)/,$(WAMR_HFILES_INCLUDE)}
 
 WAMR_HFILES_COMMON:=wasm_runtime_common.h wasm_native.h wasm_exec_env.h
 WAMR_DIFILES+=${WAMR_HFILES_COMMON:.h=.di}
-WAMR_INC_COMMON:=$(WAMRROOT)/core/iwasm/common/
+WAMR_INC_COMMON:=$(WAMR_ROOT)/core/iwasm/common/
 WAMR_HFILES_COMMON:=${addprefix $(WAMR_INC_COMMON)/,$(WAMR_HFILES_COMMON)}
 
 WAMR_HFILES_INTERPRETER:=wasm.h
 WAMR_DIFILES+=${WAMR_HFILES_INTERPRETER:.h=.di}
-WAMR_INC_INTERPRETER:=$(WAMRROOT)/core/iwasm/interpreter
+WAMR_INC_INTERPRETER:=$(WAMR_ROOT)/core/iwasm/interpreter
 WAMR_HFILES_INTERPRETER:=${addprefix $(WAMR_INC_INTERPRETER)/,$(WAMR_HFILES_INTERPRETER)}
 
 WARM_HFILES_UTILS:=bh_list.h
 WAMR_DIFILES+=${WARM_HFILES_UTILS:.h=.di}
-WAMR_INC_UTILS:=$(WAMRROOT)/core/shared/utils
+WAMR_INC_UTILS:=$(WAMR_ROOT)/core/shared/utils
 WAMR_HFILES_UTILS:=${addprefix $(WAMR_INC_UTILS)/,$(WARM_HFILES_UTILS)}
 
 
@@ -45,9 +45,9 @@ WAMR_HFILES_UTILS:=${addprefix $(WAMR_INC_UTILS)/,$(WARM_HFILES_UTILS)}
 WAMR_HFILES:=$(WAMR_HFILES_INCLUDE) $(WAMR_HFILES_COMMON) $(WAMR_HFILES_INTERPRETER) $(WAMR_HFILES_UTILS)
 WAMR_INC+=$(WAMR_INC_INCLUDE) $(WAMR_INC_COMMON) $(WAMR_INC_INTERPRETER)
 WAMR_INC+=$(WAMR_INC_UTILS)
-WAMR_INC+=$(WAMRROOT)/core/shared/platform/$(WAMR_OS)/
+WAMR_INC+=$(WAMR_ROOT)/core/shared/platform/$(WAMR_OS)/
 
-#WAMR_H:=${WAMRROOT}/Include/WAMR/wavm-c/wavm-c.h
+#WAMR_H:=${WAMR_ROOT}/Include/WAMR/wavm-c/wavm-c.h
 WAMR_DI_ROOT:=$(REPOROOT)/tagion/vm/wamr/c/
 WAMR_DIFILES:=${addprefix $(WAMR_DI_ROOT)/,$(WAMR_DIFILES)}
 WAMR_PACKAGE:=tagion.vm.wamr.c
