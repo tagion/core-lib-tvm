@@ -12,3 +12,6 @@ tagion/vm/wamr/c/
 tests/basic/d/basic
 *.parked
 multi-module
+tests/basic/c/basic
+tests/wasmd/
+wamr/build/

@@ -22,7 +22,7 @@ LDWFLAGS+=--allow-undefined
 
 
 SRC:=betterc
-BIN?=bin
+#BIN?=wasm-apps
 
 vpath %.d $(SRC)
 
