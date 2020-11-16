@@ -17,3 +17,4 @@ tests/wasmd/
 wamr/build/
 wamr/CMakeCache.txt
 wamr/CMakeFiles
+llvm
