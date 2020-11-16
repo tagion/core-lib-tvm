@@ -136,6 +136,8 @@ $(LIBRARY): ${DFILES}
 	@echo "########################################################################################"
 	${PRECMD}$(DC) ${INCFLAGS} $(DCFLAGS) $(DFILES) -c $(OUTPUT)$(LIBRARY)
 
+install: $(INSTALL)
+
 CLEANER+=clean
 
 subdate:
