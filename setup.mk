@@ -1,6 +1,8 @@
 include git.mk
 -include $(REPOROOT)/localsetup.mk
 
+INSTALL+=install-llvm
+
 ifndef NOUNITTEST
 DCFLAGS+=-I$(REPOROOT)/tests/basic/d/
 DCFLAGS+=-unittest
