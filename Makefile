@@ -4,6 +4,7 @@ ifndef $(VERBOSE)
 PRECMD?=@
 endif
 
+
 DC?=dmd
 AR?=ar
 include $(REPOROOT)/command.mk
@@ -158,4 +159,4 @@ $(PROGRAMS):
 	$(DC) $(DCFLAGS) $(LDCFLAGS) $(OUTPUT) $@
 
 install-llvm:
-	$(REPOROOT)/wasm-micro-runtime/wamr-compiler/build_llvm.sh
+	cd $(REPOROOT)/wasm-micro-runtime/wamr-compiler/; ./build_llvm.sh
