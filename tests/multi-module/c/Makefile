@@ -16,7 +16,7 @@ OBJS:=${addprefix $(BIN)/,$(OBJS)}
 MAIN?=basic
 
 IWASM_ROOT:=$(REPOROOT)/wasm-micro-runtime/
-LIBS+=$(REPOROOT)/wamr/build/libvmlib.a
+LIBS+=$(IWASM_ROOT)/samples/multi-module/libvmlib.a
 
 #LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libaotclib.a
 CFLAGS+=-fPIC
@@ -62,7 +62,7 @@ CFLAGS+=${addprefix -I$(IWASM_ROOT)/,$(IWASM_INCS)}
 
 LDFLAGS+=-lpthread
 LDFLAGS+=-lm
-LDFLAGS+=$(REPOROOT)/wamr/build/CMakeFiles/multi_module.dir/home/carsten/work/tagion_main/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.c.o
+#LDFLAGS+=$(REPOROOT)/wasm-micro-runtime/samples/basic/cmake_build/CMakeFiles/basic.dir/home/Abe/documents/tagion_regression/tagion_wamr/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.c.o
 
 all: $(BIN) $(MAIN) wasm
 

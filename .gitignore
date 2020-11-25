@@ -18,3 +18,4 @@ wamr/build/
 wamr/CMakeCache.txt
 wamr/CMakeFiles
 llvm
+wasm-micro-runtime

@@ -1,3 +1,41 @@
+HELP+=help-main
+
+help: $(HELP)
+	@echo "make install     : Compile the main LLVM"
+	@echo
+	@echo "make lib       : Builds $(LIBNAME) library"
+	@echo
+	@echo "make unittest      : Run the unittests"
+	@echo
+	@echo "make subdate   : If the repo been clone with out --recursive then run the"
+	@echo
+	@echo "make spull     : All the submodules can be pull by"
+	@echo
+
+help-main:
+	@echo "Usage "
+	@echo
+	@echo "make info      : Prints the Link and Compile setting"
+	@echo
+	@echo "make proper    : Clean all"
+	@echo
+	@echo "make ddoc      : Creates source documentation"
+	@echo
+	@echo "make PRECMD=   : Verbose mode"
+	@echo "                 make PRECMD= <tag> # Prints the command while executing"
+	@echo
+
+info:
+	@echo "WAYS    =$(WAYS)"
+	@echo "DFILES  =$(DFILES)"
+	@echo "OBJS    =$(OBJS)"
+	@echo "LDCFLAGS =$(LDCFLAGS)"
+	@echo "DCFLAGS  =$(DCFLAGS)"
+	@echo "INCFLAGS =$(INCFLAGS)"
+	@echo "GIT_REVNO=$(GIT_REVNO)"
+	@echo "GIT_HASH =$(GIT_HASH)"
+
+
 include git.mk
 
 ifndef $(VERBOSE)
@@ -50,40 +88,7 @@ ifndef DFILES
 include $(REPOROOT)/source.mk
 endif
 
-HELP+=help-main
 
-help: $(HELP)
-	@echo "make lib       : Builds $(LIBNAME) library"
-	@echo
-	@echo "make test      : Run the unittests"
-	@echo
-	@echo "make subdate   : If the repo been clone with out --recursive then run the"
-	@echo
-	@echo "make spull     : All the submodules can be pull by"
-	@echo
-
-help-main:
-	@echo "Usage "
-	@echo
-	@echo "make info      : Prints the Link and Compile setting"
-	@echo
-	@echo "make proper    : Clean all"
-	@echo
-	@echo "make ddoc      : Creates source documentation"
-	@echo
-	@echo "make PRECMD=   : Verbose mode"
-	@echo "                 make PRECMD= <tag> # Prints the command while executing"
-	@echo
-
-info:
-	@echo "WAYS    =$(WAYS)"
-	@echo "DFILES  =$(DFILES)"
-#	@echo "OBJS    =$(OBJS)"
-	@echo "LDCFLAGS =$(LDCFLAGS)"
-	@echo "DCFLAGS  =$(DCFLAGS)"
-	@echo "INCFLAGS =$(INCFLAGS)"
-	@echo "GIT_REVNO=$(GIT_REVNO)"
-	@echo "GIT_HASH =$(GIT_HASH)"
 
 include $(REPOROOT)/revision.mk
 
@@ -154,6 +159,7 @@ clean:
 
 proper: $(CLEANER)
 	rm -fR $(WAYS)
+	rm -f dfiles.mk
 
 $(PROGRAMS):
 	$(DC) $(DCFLAGS) $(LDCFLAGS) $(OUTPUT) $@

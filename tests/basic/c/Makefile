@@ -15,7 +15,7 @@ MAIN=basic
 
 IWASM_ROOT:=$(REPOROOT)/wasm-micro-runtime/
 #LIBS+=$(IWASM_ROOT)/samples/basic/libvmlib.a
-LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libvmlib.a
+LIBS+=$(IWASM_ROOT)/wamr-compiler/libvmlib.a
 #LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libaotclib.a
 CFLAGS+=-fPIC
 CFLAGS+=-g
@@ -57,7 +57,6 @@ CFLAGS+=${addprefix -I$(IWASM_ROOT)/,$(IWASM_INCS)}
 
 LDFLAGS+=-lpthread
 LDFLAGS+=-lm
-
 all: $(BIN) $(MAIN)
 
 run: all
@@ -75,3 +74,5 @@ $(BIN)/%.o: $(SRC)/%.c
 clean:
 	rm -fR $(BIN)
 	rm -f $(MAIN)
+lib:
+	cd $(IWASM_ROOT)/wamr-compiler; cmake CMakeLists.txt; make

@@ -14,7 +14,7 @@ OBJS:=${notdir $(OBJS)}
 OBJS:=${addprefix $(BIN)/,$(OBJS)}
 
 
-LIBS+=$(IWASM_ROOT)/wamr-compiler/build/libvmlib.a
+LIBS+=$(IWASM_ROOT)/wamr-compiler/libvmlib.a
 
 MAIN:=basic
 
