@@ -2,43 +2,51 @@ REPOROOT?=${shell git rev-parse --show-toplevel}
 DC?=ldc2
 DFLAGS+=-I$(REPOROOT)
 DFLAGS+=-I$(REPOROOT)/../tagion_basic
+#DFLAGS+=-D__cplusplus
 #LIBS+=$(REPOROOT)/bin/libiwavm.a
-LIBS+=$(REPOROOT)/wasm-micro-runtime/samples/multi-module/libvmlib.a
-#INC+=-I$(REPOROOT)/wasm-micro-runtime/core/shared/utils/
-#INC+=-I$(REPOROOT)/wasm-micro-runtime/core/shared/platform/linux/
-#INC+=-I$(REPOROOT)/wasm-micro-runtime/core/shared/platform/include/
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/platform/linux/platform_init.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/platform/common/posix/posix_malloc.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/platform/common/posix/posix_memmap.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/platform/common/posix/posix_thread.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/platform/common/posix/posix_time.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/mem-alloc/ems/ems_alloc.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/mem-alloc/ems/ems_hmu.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/mem-alloc/ems/ems_kfc.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/mem-alloc/mem_alloc.o
+#LIBS+=$(REPOROOT)/wasm-micro-runtime/samples/multi-module/libvmlib.a
+INC+=-I$(REPOROOT)/wasm-micro-runtime/core/shared/utils/
+INC+=-I$(REPOROOT)/wasm-micro-runtime/core/shared/platform/linux/
+INC+=-I$(REPOROOT)/wasm-micro-runtime/core/shared/platform/include/
+INC+=-I$(REPOROOT)/wasm-micro-runtime/core/iwasm/include/
+INC+=-I$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/
+INC+=-I$(REPOROOT)/wasm-micro-runtime/core/shared/mem-alloc/
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/platform/linux/platform_init.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/platform/common/posix/posix_malloc.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/platform/common/posix/posix_memmap.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/platform/common/posix/posix_thread.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/platform/common/posix/posix_time.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/mem-alloc/ems/ems_alloc.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/mem-alloc/ems/ems_hmu.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/mem-alloc/ems/ems_kfc.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/mem-alloc/mem_alloc.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_assert.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_common.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_hashmap.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_list.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_log.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_queue.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_vector.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/runtime_timer.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_c_api.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_exec_env.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_memory.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_native.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_runtime_common.c.o
+#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_shared_memory.c.o
+#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/arch/invokeNative_em64.c.o
+#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/interpreter/wasm_interp_classic.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/interpreter/wasm_loader.c.o
+DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/interpreter/wasm_runtime.c.o
+AMS:=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/arch/invokeNative_em64.c.o
 #DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/mem-alloc/tlsf/tlsf.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_assert.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_common.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_hashmap.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_list.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_log.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_queue.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_vector.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/runtime_timer.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_exec_env.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_memory.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_native.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_runtime_common.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_shared_memory.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/interpreter/wasm_interp_classic.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/interpreter/wasm_loader.o
-#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/interpreter/wasm_runtime.o
-#AMS:=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/arch/invokeNative_em64.o
 
 LIBVM:=libvm.a
-OBJ := $(patsubst %.o, %.c, $(DEPS))
-MAIN:=wamr
+OBJ := $(patsubst %.c.o, %.c, $(DEPS))
+HFILES:=$(patsubst %.c.o, %.h, $(DEPS))
+MAIN:=Wamr
+UTEST:=-unittest
 DFILES?=${shell find . -name "*.d" -printf "%P "}
 
 
@@ -48,16 +56,17 @@ $(MAIN): $(LIBVM)
 	$(DC) $(DFLAGS) $(LIBS) $(DFILES) -of$@
 
 $(LIBVM): $(DEPS) $(AMS)
-	ar rcs $@ $(AMS) $(DEPS) 
+	ar qc $@ $(AMS) $(DEPS)
+	ranlib $@
 
-$(AMS): $(AMS:.o=.s)
+$(AMS): $(AMS:.c.o=.s)
 	$(AS) $< -o $@
 
-$(DEPS): $(OBJ)
-	$(CC) -M $(INC) -c $<  -o $@
+$(DEPS):%.c.o: %.c
+	$(CC) -c $(INC) $< -o $@ 
 
 unittest:
-	$(DC) unittest
+	$(DC) $(DFLAGS) $(LIBS) $(MAIN:=.d) $(UTEST)
 
 prt:
 	@echo $(AMS)

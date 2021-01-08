@@ -13,18 +13,18 @@ import outbuffer=std.outbuffer;
 import tagion.vm.wamr.c.wasm_export;
 import tagion.vm.wamr.c.lib_export;
 import tagion.vm.wamr.c.wasm_exec_env;
-import tagion.basic.TagionExceptions;
+//import tagion.basic.TagionExceptions;
 import core.stdc.stdlib : calloc, free;
 
 import std.stdio;
 
-@safe
-class WamrException : TagionException {
-    this(string msg, string file = __FILE__, size_t line = __LINE__ ) pure {
-        super( msg, file, line );
-    }
-}
-alias check=Check!WamrException;
+//@safe
+//class WamrException : TagionException {
+    //this(string msg, string file = __FILE__, size_t line = __LINE__ ) pure {
+        //super( msg, file, line );
+    //}
+//}
+//alias check=Check!WamrException;
 
 alias wasm_ptr_t=Typedef!(int, int.init, "wasm_ptr");
 
@@ -92,7 +92,7 @@ class WamrEngine {
         runtime_args.native_symbols = cast(NativeSymbol*)symbols.native_symbols.ptr;
 
         const runtime_init_success=wasm_runtime_full_init(&runtime_args);
-        .check(runtime_init_success, "Faild to initialize wamr runtime");
+        //.check(runtime_init_success, "Faild to initialize wamr runtime");
 
         wasm_module=wasm_runtime_load(
             wasm_code.ptr,
@@ -100,7 +100,7 @@ class WamrEngine {
             error_buf.ptr,
             cast(uint)error_buf.length);
 
-        .check(wasm_module !is null, format("Faild to load the wasm module %s", module_name));
+        //.check(wasm_module !is null, format("Faild to load the wasm module %s", module_name));
 
         module_inst = wasm_runtime_instantiate(
             wasm_module,
@@ -109,7 +109,7 @@ class WamrEngine {
             error_buf.ptr,
             cast(uint)error_buf.length);
 
-        .check(module_inst !is null, format("Instantiate wasm module failed. error: %s", fromStringz(error_buf.ptr)));
+        //.check(module_inst !is null, format("Instantiate wasm module failed. error: %s", fromStringz(error_buf.ptr)));
 
         exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
 
@@ -170,9 +170,9 @@ class WamrEngine {
         assert(param_buf.offset % int.sizeof == 0);
 //        auto args_buf=cast(uint[])(param_buf.toBytes);
         auto success=wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
-        .check(success, format("Wasm function failed %s %s(%s)\n%s",
-                RetT.stringof, f.name, Args.stringof,
-                fromStringz(wasm_runtime_get_exception(module_inst))));
+        //.check(success, format("Wasm function failed %s %s(%s)\n%s",
+         //       RetT.stringof, f.name, Args.stringof,
+         //       fromStringz(wasm_runtime_get_exception(module_inst))));
         static if (!is(RetT==void)) {
              return *cast(RetT*)param_buf.ptr;
         }
@@ -215,9 +215,9 @@ class WamrEngine {
 
         //enum symbols=WamrSymbols.paramsSymbols!(Args)()~WamrSymbols.listSymbols!(RetT);
         auto success=wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
-        .check(success, format("Wasm function failed %s %s %s\n%s",
-                RetT.stringof, f.name, Args.stringof,
-                fromStringz(wasm_runtime_get_exception(module_inst))));
+        //.check(success, format("Wasm function failed %s %s %s\n%s",
+         //       RetT.stringof, f.name, Args.stringof,
+         //       fromStringz(wasm_runtime_get_exception(module_inst))));
         foreach(i, arg; args) {
             alias WasmType=TypedefType!(WasmArgs[i]);
 
@@ -324,7 +324,7 @@ struct WamrSymbols {
     }
 
     void opCall(F)(string symbol, F func, string signature, void* attachment=null) if (isFunctionPointer!F) {
-        .check(!(symbol in native_index), format("Native symbol %s is already definded", symbol));
+        //.check(!(symbol in native_index), format("Native symbol %s is already definded", symbol));
         NativeSymbol native_symbol={
                 symbol.toStringz,         // the name of WASM function name
                 func,                     // the native function pointer
@@ -832,7 +832,7 @@ struct WamrSymbols {
     }
 +/
 }
-
+version(none)
 unittest {
     import src.native_impl;
     import std.stdio;
@@ -887,6 +887,7 @@ unittest {
     writeln("Passed");
 }
 
+version(none)
 unittest {
     int result;
     int add(int x) {
@@ -911,7 +912,7 @@ unittest {
 unittest {
     extern(C) static int __wasm_assert(wasm_exec_env_t exec_env, int x, int y) {
         writefln("__wasm_assert %d %d", x, y);
-        .check(0, format("__wasm_assert x=%d y=%d", x, y));
+        //.check(0, format("__wasm_assert x=%d y=%d", x, y));
         return -1;
     }
     import std.stdio;
@@ -922,7 +923,6 @@ unittest {
     wasm_symbols("__assert", &__wasm_assert, "(ii)i");
     uint[] global_heap;
     global_heap.length=512 * 1024;
-
     auto wasm_engine=new WamrEngine(
         wasm_symbols,
         8092, // Stack size
@@ -940,8 +940,6 @@ unittest {
         array.length=32;
         const ret=wasm_engine.call!int(char_array, array);
         writefln("ret = %d %s", ret, array);
-
-
     }
     version(none)
     {
@@ -962,4 +960,9 @@ unittest {
     // wasm_symbols("intToStr", &intToStr, "(i*~i)i");
     // wasm_symbols("get_pow", &get_pow, "(ii)i");
     // wasm_symbols("calculate_native", &calculate_native, "(iii)i");
+}
+
+
+int main(string[] args) {
+    return 0;
 }
