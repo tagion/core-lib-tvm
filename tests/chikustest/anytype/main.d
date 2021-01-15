@@ -1,13 +1,8 @@
 module main;
-
-import tagion.vm.wamr.c.wasm_runtime_common;
-import tagion.vm.wamr.c.lib_export;
-import tagion.vm.wamr.c.wasm_export;
-import tagion.vm.wamr.c.wasm_c_api;
 import tagion.vm.wamr.revision;
+import tagion.vm.wamr.c.wasm_export; 
 import std.getopt;
 import std.stdio;
-import std.format;
 import std.string : fromStringz;
 import std.file : fread=read;
 
@@ -67,22 +62,32 @@ int main(string[] args) {
     //wasm_application_execute_func(module_inst, "abefenix", 0, &wasm_args[0]);
     //wasm_application_execute_func(module_inst, "abevoladora", 0, &wasm_args[0]);
     
-    auto xfunc = cast(void* function())wasm_runtime_lookup_function(module_inst, "abefenix".ptr, null);
+    auto xfunc = wasm_runtime_lookup_function(module_inst, "func1".ptr, null);
 
     exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
 
+    uint num_args = 1;
+    uint num_results = 1;
 
+    wasm_val_t* argfs;
+    wasm_val_t *results;
 
-    uint num_args = 1, num_results = 1;
-    wasm_val_t [1]argfs;
-    wasm_val_t [1]results;
-
-    argfs[0].kind = wasm_valkind_enum.WASM_I32;
-    argfs[0].of.i32 = 8;
+    argfs = new wasm_val_t;
+    argfs.kind = 0;
+    argfs.of.i32 = 8;
     
-    //wasm_runtime_call_wasm_a(exec_env, xfunc, num_results, results, num_args, argfs);
-    
-    writeln("fib function return: %d\n", results[0].of.i32);
+    //wasm_val_t []results;
+    //wasm_val_t *argfs;
+
+    if (wasm_runtime_call_wasm_a(exec_env, xfunc, num_results, results, num_args, argfs)){
+       writeln("Hola bienvenido al mundo");
+    }
+    //wasm_runtime_call_wasm_a(wasm_exec_env_t exec_env,
+                         //wasm_function_inst_t function,
+                         //uint32_t num_results, wasm_val_t results[],
+                         //uint32_t num_args, wasm_val_t *args);
+
+    //writeln("fib function return: %d\n", results[0].of.i32);
 
 
    //wasm_runtime_call_wasm(exec_env, xfunc, 1, &wasm_args[0]);

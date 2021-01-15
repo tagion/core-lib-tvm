@@ -95,6 +95,7 @@ include $(REPOROOT)/revision.mk
 ifndef DFILES
 lib: dodi dfiles.mk
 	$(MAKE) lib
+	$(MAKE) -f wasm_lib.mk
 
 unittest: dfiles.mk
 	$(MAKE) unittest
@@ -154,7 +155,7 @@ spull:
 
 clean:
 	rm -f $(LIBRARY)
-	rm -f ${OBJS}
+	rm -f $(BIN)/*.o
 	rm -f $(UNITTEST) $(UNITTEST).o
 
 proper: $(CLEANER)

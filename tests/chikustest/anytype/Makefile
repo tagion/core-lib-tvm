@@ -1,13 +1,13 @@
 REPOROOT?=${shell git rev-parse --show-toplevel}
 
-DC?=dmd
+DC?=ldc2
 SRC:=src
 BIN:=bin
 DFILES?=${shell find . -path ./app-wasm -prune -false -o -name "*.d" -printf "%P "}
-
+#INC+=-I$(REPOROOT)/tagion/vm/wamr/c/
 IWASM_ROOT:=$(REPOROOT)/wasm-micro-runtime/
 #LIBS+=$(IWASM_ROOT)/samples/multi-module/libvmlib.a
-LIBS+=$(REPOROOT)/tagion/vm/wamr/libvm.a
+LIBS+=$(REPOROOT)/bin/libwarm.a
 MAIN:=anytype
 
 DFLAGS+=-I$(REPOROOT)
@@ -20,8 +20,7 @@ run: all
 	@./$(MAIN) -f app-appwasm/testapp.wasm
 
 $(MAIN):
-	#cd $(IWASM_ROOT)/samples/multi-module/ ; cmake -f CMakeLists.txt; $(MAKE) vmlib;
-	$(DC) $(DFLAGS) $(LIBS) $(DFILES) -of$@
+	$(DC) $(DFILES)  $(DFLAGS) $(INC) $(LIBS)  -of$@
 
 lsinfo:
 	echo $(DFILES)
