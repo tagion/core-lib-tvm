@@ -11,7 +11,7 @@ S_t* func1() {
     S_t* ret;
     ret=malloc(sizeof(S_t));
     ret->x=10;
-    ret->f=42.42;
+    ret->f=1;
     return ret;
 }
 

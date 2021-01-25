@@ -4,5 +4,6 @@ while(<>) {
     s/^(wasm_module_t\s+wasm_runtime_load\s+)/version(none)\n$1/;
     s/^(void\s+wasm_runtime_destroy\s+\(\);)/version(none)\n$1/;
     s/^(void\s+wasm_runtime_destroy_exec_env\s+)/version(none)\n$1/;
+    s/^(void\s+wasm_runtime_set_module_reader\s+)/version(none)\n$1/;
     print;
 }

@@ -6,7 +6,7 @@ BIN:=bin
 DFILES?=${shell find . -path ./app-wasm -prune -false -o -name "*.d" -printf "%P "}
 
 IWASM_ROOT:=$(REPOROOT)/wasm-micro-runtime/
-LIBS+=$(IWASM_ROOT)/samples/multi-module/libvmlib.a
+LIBS=$(REPOROOT)/bin/libwarm.a
 MAIN:=multimodule
 
 DFLAGS+=-I$(REPOROOT)
@@ -19,7 +19,7 @@ run: all
 	@./$(MAIN) -f app-wasm/mC.wasm
 
 $(MAIN):
-	cd $(IWASM_ROOT)/samples/multi-module/ ; cmake -f CMakeLists.txt; $(MAKE) vmlib;
+	#cd $(IWASM_ROOT)/samples/multi-module/ ; cmake -f CMakeLists.txt; $(MAKE) vmlib;
 	$(DC) $(DFLAGS) $(LIBS) $(DFILES) -of$@
 
 lsinfo:

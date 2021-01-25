@@ -1,4 +1,5 @@
 REPOROOT?=${shell git rev-parse --show-toplevel}
+DSTEP:=dstep
 DFLAGS+=-I$(REPOROOT)
 DFLAGS+=-I$(REPOROOT)/../tagion_basic
 
@@ -66,7 +67,6 @@ DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/interpreter/wasm_loader.c.o
 DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/interpreter/wasm_runtime.c.o
 DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/aot/aot_loader.c.o
 DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/aot/aot_runtime.c.o
-DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.c.o
 #DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/aot/arch/aot_reloc_x86_64.c.o
 #DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/libraries/lib-pthread/lib_pthread_wrapper.c.o
 #DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/libraries/thread-mgr/thread_manager.c.o
@@ -79,15 +79,6 @@ OBJS+=$(notdir $(DEPS))
 OBJS:=$(addprefix $(BIN)/,$(OBJS))
 
 
-
-all:$(LIBS)
-
-$(LIBS): $(DEPS) $(AMS)
-	ar qc $@  $(OBJS) 
-	ranlib $@
-
-$(AMS): $(AMS:.c.o=.s)
-	$(AS) $< -o $(BIN)/${notdir $(@)}
-
-$(DEPS):%.c.o: %.c 
-	$(CC) -c $(INC) $(OFLAGS) $< -o $(BIN)/${notdir $(@)}
+all:
+$(DEPS):%.c.o: %.c
+	${shell dstep $(INC) $(OFLAGS) $< -o $(BIN)/${notdir $(@)}}

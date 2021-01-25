@@ -4,6 +4,8 @@ DC?=ldc2
 SRC:=src
 BIN:=bin
 DFILES?=${shell find . -path ./app-wasm -prune -false -o -name "*.d" -printf "%P "}
+#DFILES+=./bin/wasm_export.o
+#OFILES+=export.o
 #INC+=-I$(REPOROOT)/tagion/vm/wamr/c/
 IWASM_ROOT:=$(REPOROOT)/wasm-micro-runtime/
 #LIBS+=$(IWASM_ROOT)/samples/multi-module/libvmlib.a
@@ -20,7 +22,10 @@ run: all
 	@./$(MAIN) -f app-appwasm/testapp.wasm
 
 $(MAIN):
-	$(DC) $(DFILES)  $(DFLAGS) $(INC) $(LIBS)  -of$@
+	$(DC) $(DFILES) $(OFILES) $(LIBS) $(DFLAGS) -of$@ 
+
+$(OFILES):
+	$(DC) $(DFLAGS) $@ -of$(BIN)/${notdir $(@)}
 
 lsinfo:
 	echo $(DFILES)
@@ -29,6 +34,7 @@ lsinfo:
 clean:
 	rm -f $(MAIN)
 	rm -f $(OBJS)
+	rm  *.o
 	$(MAKE) -C betterc clean
 
 proper: clean
