@@ -22,6 +22,7 @@ run: all
 	@./$(MAIN) -f app-appwasm/testapp.wasm
 
 $(MAIN):
+	$(MAKE) -C appwasm
 	$(DC) $(DFILES) $(OFILES) $(LIBS) $(DFLAGS) -of$@ 
 
 $(OFILES):
@@ -35,7 +36,7 @@ clean:
 	rm -f $(MAIN)
 	rm -f $(OBJS)
 	rm  *.o
-	$(MAKE) -C betterc clean
+	$(MAKE) -C appwasm clean
 
 proper: clean
 	rm -f dfiles.mk
