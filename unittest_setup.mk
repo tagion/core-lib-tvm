@@ -7,7 +7,8 @@ TESTDCFLAGS+=$(LIBS)
 #TESTDCFLAGS+=$(TAGION_CORE)/bin/libtagion.a
 TESTDCFLAGS+=$(TAGION_DFILES)
 TESTDCFLAGS+=$(REPOROOT)/tests/basic/d/src/native_impl.d
-TESTDCFLAGS+=$(REPOROOT)/tests/unittest.d
+#TESTDCFLAGS+=$(REPOROOT)/tests/unittest.d
+TESTDCFLAGS+=-g
 TESTDCFLAGS+=-main
 
 vpath %.d tests/basic/d/

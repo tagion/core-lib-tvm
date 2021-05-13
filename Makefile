@@ -56,7 +56,7 @@ include setup.mk
 -include $(REPOROOT)/dfiles.mk
 
 #BIN:=bin/
-LDCFLAGS+=$(LINKERFLAG)-L$(BINDIR)
+#LDCFLAGS+=$(LINKERFLAG)-L$(BINDIR)
 ARFLAGS:=rcs
 BUILD?=$(REPOROOT)/build
 #SRC?=$(REPOROOT)
@@ -102,8 +102,11 @@ unittest: dfiles.mk
 else
 lib: $(REVISION) $(LIBRARY)
 
-unittest: $(UNITTEST)
+unittest: dodi $(UNITTEST)
 	export LD_LIBRARY_PATH=$(LIBBRARY_PATH); $(UNITTEST)
+
+debug: $(UNITTEST)
+	export LD_LIBRARY_PATH=$(LIBBRARY_PATH); ddd $(UNITTEST)
 
 $(UNITTEST): $(LIBS) $(WAYS)
 	$(PRECMD)$(DC) $(DCFLAGS) $(INCFLAGS) $(DFILES) $(TESTDCFLAGS) $(LDCFLAGS) $(OUTPUT)$@

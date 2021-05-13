@@ -18,7 +18,8 @@ WAMR_ROOT:=$(REPOROOT)/wasm-micro-runtime/
 
 
 include dstep_setup.mk
-LIBS+=$(WAMR_ROOT)/wamr-compiler/build/libvmlib.a
+#LIBS+=$(WAMR_ROOT)/wamr-sdk/out/default/runtime-sdk/lib/libvmlib.a
+LIBS+=$(BIN)/libwarm.a
 
 # DDOC Configuration
 #
@@ -37,14 +38,19 @@ REVISION:=$(REPOROOT)/$(SOURCE)/revision.di
 
 -include dstep.mk
 
-TAGION_BASIC:=$(REPOROOT)/../tagion_basic/
-TAGION_UTILS:=$(REPOROOT)/../tagion_utils/
-TAGION_CORE:=$(REPOROOT)/../tagion_core/
+# include $(MAINROOT)/../tagion_utils/dfiles.mk
+
+TAGION_BASIC:=$(MAINROOT)/tagion_basic/
+TAGION_UTILS:=$(MAINROOT)/tagion_utils/
+TAGION_HIBON:=$(MAINROOT)/tagion_hibon/
+# TAGION_CORE:=$(REPOROOT)/../tagion_core/
+#include $(TAGION_BASIC)/dfiles.mk
+#include $(TAGION_UTILS)/dfiles.mk
 
 include tagion_dfiles.mk
 
-INC+=$(TAGION_BASIC)
-INC+=$(TAGION_UTILS)
+# INC+=$(TAGION_BASIC)
+# INC+=$(TAGION_UTILS)
 #INC+=$(TAGION_CORE)
 INC+=$(REPOROOT)
 

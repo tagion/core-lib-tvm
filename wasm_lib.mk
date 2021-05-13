@@ -2,6 +2,8 @@ REPOROOT?=${shell git rev-parse --show-toplevel}
 DFLAGS+=-I$(REPOROOT)
 DFLAGS+=-I$(REPOROOT)/../tagion_basic
 
+OFLAGS+=-g
+
 OFLAGS+=-DBH_FREE=wasm_runtime_free
 OFLAGS+=-DBH_MALLOC=wasm_runtime_malloc
 OFLAGS+=-DBH_PLATFORM_LINUX
@@ -17,8 +19,8 @@ OFLAGS+=-DWASM_ENABLE_MULTI_MODULE=1
 OFLAGS+=-DWASM_ENABLE_SHARED_MEMORY=0
 OFLAGS+=-DWASM_ENABLE_THREAD_MGR=0
 
-CFLAGS+=-Wall -Wextra -Wformat -Wformat-security -mindirect-branch-register 
-CFLAGS+=-std=gnu99 -ffunction-sections -fdata-sections -Wno-unused-parameter -Wno-pedantic -fPIC  
+CFLAGS+=-Wall -Wextra -Wformat -Wformat-security -mindirect-branch-register
+CFLAGS+=-std=gnu99 -ffunction-sections -fdata-sections -Wno-unused-parameter -Wno-pedantic -fPIC
 
 BIN=bin
 LIBS+=$(BIN)/libwarm.a
@@ -54,7 +56,7 @@ DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_queue.c.o
 DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/bh_vector.c.o
 DEPS+=$(REPOROOT)/wasm-micro-runtime/core/shared/utils/runtime_timer.c.o
 DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c.o
-DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_c_api.c.o
+#DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_c_api.c.o
 DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_exec_env.c.o
 DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_memory.c.o
 DEPS+=$(REPOROOT)/wasm-micro-runtime/core/iwasm/common/wasm_native.c.o
@@ -79,15 +81,22 @@ OBJS+=$(notdir $(DEPS))
 OBJS:=$(addprefix $(BIN)/,$(OBJS))
 
 
+.PHONY: $(LIBS)
 
 all:$(LIBS)
 
 $(LIBS): $(DEPS) $(AMS)
-	ar qc $@  $(OBJS) 
+	ar qc $@  $(OBJS)
 	ranlib $@
 
 $(AMS): $(AMS:.c.o=.s)
 	$(AS) $< -o $(BIN)/${notdir $(@)}
 
-$(DEPS):%.c.o: %.c 
+$(DEPS):%.c.o: %.c
 	$(CC) -c $(INC) $(OFLAGS) $< -o $(BIN)/${notdir $(@)}
+
+clean:
+	rm -f $(DEPS)
+
+count:
+	@cat $(DEPS:.c.o=.c) | wc -l

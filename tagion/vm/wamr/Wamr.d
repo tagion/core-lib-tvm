@@ -832,7 +832,7 @@ struct WamrSymbols {
     }
 +/
 }
-version(none)
+//version(none)
 unittest {
     import src.native_impl;
     import std.stdio;
@@ -909,6 +909,7 @@ unittest {
 
 }
 
+version(none)
 unittest {
     extern(C) static int __wasm_assert(wasm_exec_env_t exec_env, int x, int y) {
         writefln("__wasm_assert %d %d", x, y);
@@ -963,6 +964,6 @@ unittest {
 }
 
 
-int main(string[] args) {
-    return 0;
-}
+// int main(string[] args) {
+//     return 0;
+// }
