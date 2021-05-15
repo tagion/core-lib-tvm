@@ -326,10 +326,10 @@ struct WamrSymbols {
     void opCall(F)(string symbol, F func, string signature, void* attachment=null) if (isFunctionPointer!F) {
         //.check(!(symbol in native_index), format("Native symbol %s is already definded", symbol));
         NativeSymbol native_symbol={
-                symbol.toStringz,         // the name of WASM function name
-                func,                     // the native function pointer
-                signature.toStringz,	  // the function prototype signature, avoid to use i32
-                attachment                // attachment if none the null
+            symbol.toStringz,         // the name of WASM function name
+            func,                     // the native function pointer
+            signature.toStringz,      // the function prototype signature, avoid to use i32
+            attachment                // attachment if none the null
         };
         native_index[symbol]=native_symbols.length;
         native_symbols~=native_symbol;

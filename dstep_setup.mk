@@ -20,7 +20,7 @@ DSTEP_CORRECT:=true
 DSTEP_CORRECT_2:=true
 # WAMR C-header file
 WAMR_OS:=linux
-WAMR_HFILES_INCLUDE:=aot_export.h  wasm_export.h lib_export.h 
+WAMR_HFILES_INCLUDE:=aot_export.h  wasm_export.h lib_export.h
 WAMR_DIFILES:=${WAMR_HFILES_INCLUDE:.h=.di}
 WAMR_INC_INCLUDE:=$(WAMR_ROOT)/core/iwasm/include/
 WAMR_HFILES_INCLUDE:=${addprefix $(WAMR_INC_INCLUDE)/,$(WAMR_HFILES_INCLUDE)}
