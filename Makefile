@@ -48,7 +48,6 @@ AR?=ar
 include $(REPOROOT)/command.mk
 
 
-include $(MAINROOT)/dinclude_setup.mk
 DCFLAGS+=$(addprefix -I$(MAINROOT)/,$(DINC))
 
 include setup.mk
