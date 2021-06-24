@@ -20,12 +20,12 @@ DSTEP_CORRECT:=true
 DSTEP_CORRECT_2:=true
 # WAMR C-header file
 WAMR_OS:=linux
-WAMR_HFILES_INCLUDE:=aot_export.h  wasm_export.h lib_export.h 
+WAMR_HFILES_INCLUDE:=aot_export.h  wasm_export.h lib_export.h
 WAMR_DIFILES:=${WAMR_HFILES_INCLUDE:.h=.di}
 WAMR_INC_INCLUDE:=$(WAMR_ROOT)/core/iwasm/include/
 WAMR_HFILES_INCLUDE:=${addprefix $(WAMR_INC_INCLUDE)/,$(WAMR_HFILES_INCLUDE)}
 
-WAMR_HFILES_COMMON:=wasm_runtime_common.h wasm_native.h wasm_exec_env.h 
+WAMR_HFILES_COMMON:=wasm_runtime_common.h wasm_native.h wasm_exec_env.h
 WAMR_DIFILES+=${WAMR_HFILES_COMMON:.h=.di}
 WAMR_INC_COMMON:=$(WAMR_ROOT)/core/iwasm/common/
 WAMR_HFILES_COMMON:=${addprefix $(WAMR_INC_COMMON)/,$(WAMR_HFILES_COMMON)}
@@ -53,9 +53,9 @@ WAMR_INC+=$(WAMR_INC_UTILS)
 WAMR_INC+=$(WAMR_ROOT)/core/shared/platform/$(WAMR_OS)/
 
 #WAMR_H:=${WAMR_ROOT}/Include/WAMR/wavm-c/wavm-c.h
-WAMR_DI_ROOT:=$(REPOROOT)/tagion/vm/wamr/c/
+WAMR_DI_ROOT:=$(REPOROOT)/tagion/tvm/c/
 WAMR_DIFILES:=${addprefix $(WAMR_DI_ROOT)/,$(WAMR_DIFILES)}
-WAMR_PACKAGE:=tagion.vm.wamr.c
+WAMR_PACKAGE:=tagion.tvm.c
 WAMR_FLAGS+=${addprefix -I,$(WAMR_INC)}
 WAMR_FLAGS+=--package $(WAMR_PACKAGE)
 #WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_native
@@ -74,7 +74,7 @@ $(WAMR_DI_ROOT)/lib_export.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm
 
 $(WAMR_DI_ROOT)/wasm_exec_env.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm
 $(WAMR_DI_ROOT)/wasm_exec_env.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_runtime_common
-$(WAMR_DI_ROOT)/wasm_exec_env.di:WAMR_FLAGS+=--global-import tagion.vm.wamr.platform.platform
+$(WAMR_DI_ROOT)/wasm_exec_env.di:WAMR_FLAGS+=--global-import tagion.tvm.platform.platform
 
 
 $(WAMR_DI_ROOT)/wasm_runtime_common.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_export

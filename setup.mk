@@ -32,7 +32,7 @@ LIBRARY:=$(BIN)/$(LIBNAME)
 
 WAYS+=${BIN}
 
-SOURCE:=tagion/vm/wamr
+SOURCE:=tagion/tvm/
 PACKAGE:=${subst /,.,$(SOURCE)}
 REVISION:=$(REPOROOT)/$(SOURCE)/revision.di
 

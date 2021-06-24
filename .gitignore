@@ -8,7 +8,7 @@ core
 dfiles.mk
 revision.di
 bin
-tagion/vm/wamr/c/
+tagion/tvm/c/
 tests/basic/d/basic
 *.parked
 multi-module

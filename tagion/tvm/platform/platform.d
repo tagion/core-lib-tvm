@@ -1,4 +1,4 @@
-module tagion.vm.wamr.platform.platform;
+module tagion.tvm.platform.platform;
 
 import core.sys.posix.pthread;
 

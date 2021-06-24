@@ -1,4 +1,4 @@
-module tagion.vm.wamr.Wamr;
+module tagion.tvm.Wamr;
 
 import std.traits : isFunctionPointer, ParameterStorageClassTuple, ParameterStorageClass, ParameterTypeTuple,
 ReturnType, isBasicType, Unqual, isCallable, isPointer, isFunction, isFloatingPoint, isSomeString, ForeachType, hasMember;
@@ -10,9 +10,9 @@ import std.typecons : Tuple;
 import std.string : toStringz, fromStringz;
 //import bin = std.bitmanip;
 import outbuffer=std.outbuffer;
-import tagion.vm.wamr.c.wasm_export;
-import tagion.vm.wamr.c.lib_export;
-import tagion.vm.wamr.c.wasm_exec_env;
+import tagion.tvm.c.wasm_export;
+import tagion.tvm.c.lib_export;
+import tagion.tvm.c.wasm_exec_env;
 //import tagion.basic.TagionExceptions;
 import core.stdc.stdlib : calloc, free;
 
