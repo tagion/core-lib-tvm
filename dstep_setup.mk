@@ -58,6 +58,8 @@ WAMR_DIFILES:=${addprefix $(WAMR_DI_ROOT)/,$(WAMR_DIFILES)}
 WAMR_PACKAGE:=tagion.tvm.c
 WAMR_FLAGS+=${addprefix -I,$(WAMR_INC)}
 WAMR_FLAGS+=--package $(WAMR_PACKAGE)
+WAMR_FLAGS+=--global-attribute=nothrow
+WAMR_FLAGS+=--global-attribute=@nogc
 #WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_native
 
 #$(WAMR_DI_ROOT)/bh_list.di:WAMR_FLAGS+=--global-import $(WAMR_PACKAGE).wasm_native
