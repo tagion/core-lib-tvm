@@ -2,7 +2,7 @@ module tagion.tvm.TVM;
 
 import std.traits : isFunctionPointer, ParameterStorageClassTuple, ParameterStorageClass, ParameterTypeTuple,
 ReturnType, isBasicType, Unqual, isCallable, isPointer, isFunction, isFloatingPoint, isSomeString, ForeachType, hasMember;
-import std.meta : staticMap, Alias, AliasSeq;
+import std.meta : staticMap, Alias, AliasSeq, allSatisfy, anySatisfy;
 import std.typecons : Typedef, TypedefType;
 import std.array : join;
 import std.format;
@@ -15,7 +15,7 @@ import tagion.tvm.c.wasm_export;
 import tagion.tvm.c.lib_export;
 import tagion.tvm.c.wasm_exec_env;
 import core.stdc.stdlib : calloc, free;
-
+import tagion.basic.Basic : isOneOf;
 import std.stdio;
 
 alias wasm_ptr_t=Typedef!(int, int.init, "wasm_ptr");
@@ -32,6 +32,23 @@ class ParamBuffer : outbuffer.OutBuffer {
     }
     final uint* ptr() @trusted const {
         return cast(uint*)data.ptr;
+    }
+    // final write(S)(ref const S s) if(is(S == struct)) {
+    //     static if (isWasmType!S) {
+    //         write((cast(void*)&s)[0..S.sizeof]);
+    //     }
+    //     else {
+    //         static assert(0, "Not implemented yet!!");
+    //     }
+    // }
+}
+
+template isWasmType(alias S) {
+    static if (is(S == struct)) {
+        enum isWasmType = allSatisfy!(isWasmType, S.tupleof);
+    }
+    else {
+        enum isWasmType(S) = isOneOf!(toWasmType!(S, false), int, long, float, double);
     }
 }
 
@@ -108,6 +125,9 @@ class TVMEngine {
             static if (__traits(compiles, Args[0].wasm_sizeof)) {
                 enum _S=Args[0].wasm_sizeof;
             }
+            static if (is(Args[0] == struct)) {
+                enum _S=SizeOf!(Args[0].tupleof);
+            }
             else {
                 enum _S=Args[0].sizeof;
             }
@@ -116,7 +136,9 @@ class TVMEngine {
         }
     }
 
+
     final RetT call(RetT, Args...)(Function f, Args args) @trusted {
+        version (BigEndian) static assert(0, "Big-endian not supproted yet!");
         static assert(Args.length !is 0,
             format("No arguments for is not allowed because it causes a segment faild inside the wamr"));
         auto param_buf=new ParamBuffer;
@@ -132,9 +154,19 @@ class TVMEngine {
         }
 
         foreach(i, arg; args) {
+            import std.system : Endian;
             alias WasmType=TypedefType!(WasmArgs[i]);
             static if (WamrSymbols.isWasmBasicType!(WasmType)) {
                 param_buf.write(cast(WasmType)arg);
+            }
+            else static if (is(WasmType==struct)) {
+                static if (isWasmType!S) {
+                    const s_wasm_ptr=this.malloc(S.sizeof, s);
+                    param_buf.write(s_wasm_ptr);
+                }
+                else {
+                    static assert(0, "Not implemented yet (Must convert D types to WasmTypes)!!");
+                }
             }
             else static if (is(WasmType==class)) {
                 enum code=format(
@@ -146,7 +178,7 @@ class TVMEngine {
                 mixin(code);
             }
             else {
-                static assert(0, format(""));
+                static assert(0, format("Unsuported type %s", WasmArgs[i].stringof));
             }
         }
 
@@ -254,7 +286,9 @@ struct WamrSymbols {
         opCall(func.mangleof, &func, signature, attachment);
     }
 
-    template toWasmType(T) {
+    alias structToWasmType(S) = wasm_ptr_t function(S s);
+
+    template toWasmType(T, bool check=true) {
         alias BaseT=TypedefType!T;
         static if (isBasicType!BaseT) {
             static if (isFloatingPoint!BaseT) {
@@ -280,8 +314,14 @@ struct WamrSymbols {
         else static if (isPointer!T) {
             alias toWasmType=wasm_ptr_t;
         }
-        else {
+        else static if (is(T == struct)) {
+            alias toWasmType = structToWasmType!T;
+        }
+        else static if (check) {
             static assert(0, format("%s is not supported", T.stringof));
+        }
+        else {
+            alias toWasmType = void;
         }
     }
 
