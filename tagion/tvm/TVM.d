@@ -1,10 +1,10 @@
 module tagion.tvm.TVM;
 
 import std.traits : isFunctionPointer, ParameterStorageClassTuple,
-    ParameterStorageClass, ParameterTypeTuple, ReturnType,
+ParameterStorageClass, ParameterTypeTuple, ReturnType, Fields,
     isBasicType, Unqual, isCallable, isPointer, isFunction, isFloatingPoint,
-    isSomeString, ForeachType, hasMember;
-import std.meta : staticMap, Alias, AliasSeq, allSatisfy, anySatisfy;
+isSomeString, ForeachType, hasMember;
+import std.meta : staticMap, Alias, AliasSeq, allSatisfy, anySatisfy, ApplyLeft;
 import std.typecons : Typedef, TypedefType;
 import std.array : join;
 import std.format;
@@ -17,7 +17,6 @@ import tagion.tvm.c.wasm_export;
 import tagion.tvm.c.lib_export;
 import tagion.tvm.c.wasm_exec_env;
 import core.stdc.stdlib : calloc, free;
-import tagion.basic.Basic : isOneOf;
 import std.stdio;
 
 alias wasm_ptr_t = Typedef!(int, int.init, "wasm_ptr");
@@ -45,13 +44,22 @@ alias wasm_ptr_t = Typedef!(int, int.init, "wasm_ptr");
     // }
 }
 
+alias isWasmTypes(T...) = allSatisfy!(isWasmType, T);
+
 template isWasmType(alias S) {
     static if (is(S == struct)) {
-        enum isWasmType = allSatisfy!(isWasmType, S.tupleof);
+        enum isWasmType = isWasmTypes!(Fields!S);
     }
     else {
-        enum isWasmType(S) = isOneOf!(toWasmType!(S, false), int, long, float, double);
+        enum isTypeEqual(T1, T2) = is(T1 == T2);
+        enum isWasmType = allSatisfy!(ApplyLeft!(isTypeEqual, S),
+             int, long, float, double);
     }
+}
+
+static unittest {
+    pragma(msg, "isWasmType!int ", isWasmType!int);
+    static assert(isWasmType!int);
 }
 
 @safe class TVMEngine {
@@ -145,10 +153,22 @@ template isWasmType(alias S) {
             import std.system : Endian;
 
             alias WasmType = TypedefType!(WasmArgs[i]);
+            static if (isCallable!WasmType) {
+                alias Params=ParameterTypeTuple!WasmType;
+                alias Returns=ReturnType!WasmType;
+            }
+            else {
+                alias Params=AliasSeq!(void);
+                alias Returns=void;
+            }
+
             static if (WamrSymbols.isWasmBasicType!(WasmType)) {
                 param_buf.write(cast(WasmType) arg);
             }
-            else static if (is(WasmType == struct)) {
+            else static if (is(Params[0] == struct) && is(WasmType == WamrSymbols.structToWasmType!(Params[0]))) {
+                pragma(msg, Params[0]);
+                alias S=Params[0];
+                pragma(msg, "isWasmType!S ", isWasmType!S);
                 static if (isWasmType!S) {
                     const s_wasm_ptr = this.malloc(S.sizeof, s);
                     param_buf.write(s_wasm_ptr);
@@ -166,7 +186,9 @@ template isWasmType(alias S) {
                 mixin(code);
             }
             else {
-                static assert(0, format("Unsuported type %s", WasmArgs[i].stringof));
+                pragma(msg, isCallable!WasmType);
+                pragma(msg, WamrSymbols.structToWasmType!(Params[0]));
+                static assert(0, format("Unsuported type %s", WasmType.stringof));
             }
         }
 
@@ -264,7 +286,7 @@ template isWasmType(alias S) {
                 func, // the native function pointer
                 signature.toStringz, // the function prototype signature, avoid to use i32
                 attachment // attachment if none the null
-        
+
         };
         native_index[symbol] = native_symbols.length;
         native_symbols ~= native_symbol;
