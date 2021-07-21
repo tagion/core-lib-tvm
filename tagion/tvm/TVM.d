@@ -3,7 +3,7 @@ module tagion.tvm.TVM;
 import std.traits : isFunctionPointer, ParameterStorageClassTuple,
 ParameterStorageClass, ParameterTypeTuple, ReturnType, Fields,
     isBasicType, Unqual, isCallable, isPointer, isFunction, isFloatingPoint,
-isSomeString, ForeachType, hasMember;
+isSomeString, ForeachType, hasMember, isImplicitlyConvertible;
 import std.meta : staticMap, Alias, AliasSeq, allSatisfy, anySatisfy, ApplyLeft;
 import std.typecons : Typedef, TypedefType;
 import std.array : join;
@@ -51,15 +51,33 @@ template isWasmType(alias S) {
         enum isWasmType = isWasmTypes!(Fields!S);
     }
     else {
-        enum isTypeEqual(T1, T2) = is(T1 == T2);
-        enum isWasmType = allSatisfy!(ApplyLeft!(isTypeEqual, S),
+        // enum isTypeEqual(T1, T2) = is(T1 == T2);
+        // pragma(msg, isTypeEqual!(S, int));
+        enum isWasmType = anySatisfy!(ApplyLeft!(isImplicitlyConvertible, S),
              int, long, float, double);
+        // enum isWasmType = anySatisfy!(ApplyLeft!(isTypeEqual, S),
+        //      int, long, float, double);
     }
 }
 
 static unittest {
     pragma(msg, "isWasmType!int ", isWasmType!int);
     static assert(isWasmType!int);
+    static struct S {
+        int x;
+        long y;
+        float f;
+        double d;
+        uint ux;
+        ulong uy;
+        char c;
+        byte b;
+        ubyte ub;
+        short s;
+        ushort us;
+    }
+
+    static assert(isWasmType!S);
 }
 
 @safe class TVMEngine {
@@ -123,12 +141,12 @@ static unittest {
                 enum _S = Args[0].wasm_sizeof;
             }
             static if (is(Args[0] == struct)) {
-                enum _S = SizeOf!(Args[0].tupleof);
+                enum _S = SizeOf!(Fields!(Args[0]));
             }
             else {
                 enum _S = Args[0].sizeof;
             }
-            enum S = (_S % int.sizeof == 0) ? _S : _S + int.sizeof;
+            enum S = (_S % int.sizeof == 0) ? _S : (_S / int.sizeof) * int.sizeof + int.sizeof;
             enum SizeOf = S + SizeOf!(Args[1 .. $]);
         }
     }
@@ -170,8 +188,11 @@ static unittest {
                 alias S=Params[0];
                 pragma(msg, "isWasmType!S ", isWasmType!S);
                 static if (isWasmType!S) {
-                    const s_wasm_ptr = this.malloc(S.sizeof, s);
-                    param_buf.write(s_wasm_ptr);
+                    S* _s;
+                    //enum WasmSize = SizeOf!S;
+                    const s_wasm_ptr = this.map_malloc(arg, _s);
+                    writefln("s_wasm_ptr=%d %s %s", s_wasm_ptr, _s, SizeOf!S);
+                    param_buf.write(cast(int)s_wasm_ptr);
                 }
                 else {
                     static assert(0, "Not implemented yet (Must convert D types to WasmTypes)!!");
@@ -192,7 +213,7 @@ static unittest {
             }
         }
 
-        auto success = wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
+        const success = wasm_runtime_call_wasm(exec_env, f.func, param_buf.size, param_buf.ptr);
 
         foreach (i, arg; args) {
             alias WasmType = TypedefType!(WasmArgs[i]);
@@ -214,10 +235,29 @@ static unittest {
         return result;
     }
 
+
     final void free(wasm_ptr_t memory_index) nothrow @trusted @nogc {
         if (memory_index) {
             wasm_runtime_module_free(module_inst, cast(TypedefType!wasm_ptr_t) memory_index);
         }
+    }
+
+    final wasm_ptr_t map_malloc(T, S)(const ref S s, ref T ptr) nothrow @trusted @nogc if (isPointer!T && is(S == struct)) {
+        wasm_ptr_t result = wasm_runtime_module_malloc(module_inst, S.sizeof, cast(void**)&ptr);
+        version (BigEndian) static assert(0, "Big-endian not supproted yet!");
+        import core.stdc.string : memcpy;
+        memcpy(ptr, &s, S.sizeof);
+        return result;
+    }
+    /++
+     This function copies a struct T to the the wasm runtime memory and return the location.
+     Returns:
+
+     +/
+    final wasm_ptr_t mirror(T)(ref const T ptr) nothrow @trusted @nogc
+        if (is(T==struct)) {
+        wasm_ptr_t result = wasm_runtime_malloc(module_inst, T.sizeof, cast(void**)&ptr);
+        return result;
     }
 
     ~this() @trusted {
@@ -753,13 +793,16 @@ static unittest {
 +/
 }
 
+version(none)
 unittest {
     import src.native_impl;
     import std.stdio;
     import std.file : fread = read, exists;
 
     enum testapp_file = "tests/basic/c/wasm-apps/testapp.wasm";
-    immutable wasm_code = cast(immutable(ubyte[])) testapp_file.fread();
+    enum wasm_code = cast(immutable(ubyte[])) import(testapp_file);
+    pragma(msg, " wasm_code_1 ", typeof(wasm_code));
+    //immutable wasm_code = cast(immutable(ubyte[])) testapp_file.fread();
     WamrSymbols wasm_symbols;
     wasm_symbols("intToStr", &intToStr, "(i*~i)i");
     wasm_symbols("get_pow", &get_pow, "(ii)i");

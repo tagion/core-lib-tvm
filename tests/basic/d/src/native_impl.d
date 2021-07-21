@@ -8,8 +8,8 @@ module src.native_impl;
 import std.stdio;
 import std.math;
 import std.string : toStringz, fromStringz;
-import tagion.vm.wamr.c.wasm_export;
-import tagion.vm.wamr.c.wasm_runtime_common;
+import tagion.tvm.c.wasm_export;
+import tagion.tvm.c.wasm_runtime_common;
 
 //#include <stdio.h>
 //#include "bh_platform.h"
