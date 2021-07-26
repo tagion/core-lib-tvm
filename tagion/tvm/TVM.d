@@ -1,9 +1,10 @@
 module tagion.tvm.TVM;
 
 import std.traits : isFunctionPointer, ParameterStorageClassTuple,
-ParameterStorageClass, ParameterTypeTuple, ReturnType, Fields,
+    ParameterStorageClass, ParameterTypeTuple, ReturnType, Fields,
     isBasicType, Unqual, isCallable, isPointer, isFunction, isFloatingPoint,
-isSomeString, ForeachType, hasMember, isImplicitlyConvertible;
+isSomeString, ForeachType, hasMember, isImplicitlyConvertible,
+PointerTarget;
 import std.meta : staticMap, Alias, AliasSeq, allSatisfy, anySatisfy, ApplyLeft;
 import std.typecons : Typedef, TypedefType;
 import std.array : join;
@@ -20,6 +21,15 @@ import core.stdc.stdlib : calloc, free;
 import std.stdio;
 
 alias wasm_ptr_t = Typedef!(int, int.init, "wasm_ptr");
+
+struct WasmPointerType(T) {
+    static assert(isPointer!T);
+    wasm_ptr_t wasm_ptr;
+    T* _value;
+    auto opDispatch(string name)() {
+        mixin(format!(q{return _value.%s})(name));
+    }
+}
 
 //version(none)
 @safe class ParamBuffer : outbuffer.OutBuffer {
@@ -54,7 +64,7 @@ template isWasmType(alias S) {
         // enum isTypeEqual(T1, T2) = is(T1 == T2);
         // pragma(msg, isTypeEqual!(S, int));
         enum isWasmType = anySatisfy!(ApplyLeft!(isImplicitlyConvertible, S),
-             int, long, float, double);
+                    int, long, float, double);
         // enum isWasmType = anySatisfy!(ApplyLeft!(isTypeEqual, S),
         //      int, long, float, double);
     }
@@ -167,35 +177,58 @@ static unittest {
             }
         }
 
-        foreach (i, arg; args) {
-            import std.system : Endian;
-
+        foreach (i, ref arg; args) {
             alias WasmType = TypedefType!(WasmArgs[i]);
             static if (isCallable!WasmType) {
-                alias Params=ParameterTypeTuple!WasmType;
-                alias Returns=ReturnType!WasmType;
+                enum wasmConvertCallback = true;
+                alias Params = ParameterTypeTuple!WasmType;
+                static assert(Params.length is 1,
+                        format!"Only one parameter is allowed for the WasmConverter %s"(
+                            WasmType.stringof));
+                alias Returns = ReturnType!WasmType;
             }
             else {
-                alias Params=AliasSeq!(void);
-                alias Returns=void;
+                enum wasmConvertCallback = false;
+                // alias Params=AliasSeq!(void);
+                // alias Returns=void;
             }
 
             static if (WamrSymbols.isWasmBasicType!(WasmType)) {
                 param_buf.write(cast(WasmType) arg);
             }
-            else static if (is(Params[0] == struct) && is(WasmType == WamrSymbols.structToWasmType!(Params[0]))) {
-                pragma(msg, Params[0]);
-                alias S=Params[0];
-                pragma(msg, "isWasmType!S ", isWasmType!S);
-                static if (isWasmType!S) {
-                    S* _s;
-                    //enum WasmSize = SizeOf!S;
-                    const s_wasm_ptr = this.map_malloc(arg, _s);
-                    writefln("s_wasm_ptr=%d %s %s", s_wasm_ptr, _s, SizeOf!S);
-                    param_buf.write(cast(int)s_wasm_ptr);
+            else static if (wasmConvertCallback) {
+                alias S = Params[0];
+                pragma(msg, "-> is(S == struct) ", is(S == struct), " ", isPointer!S);
+                static if (is(S == struct) && is(WasmType == WamrSymbols.structToWasmType!S)) {
+                    pragma(msg, S);
+                    //                alias S=Params[0];
+                    pragma(msg, "isWasmType!S ", isWasmType!S,
+                            " isPointer ", isPointer!S, " ", S);
+                    static if (isWasmType!S) {
+                        S* _s;
+                        //enum WasmSize = SizeOf!S;
+                        const s_wasm_ptr = this.map_malloc(arg, _s);
+                        writefln("s_wasm_ptr=%d %s %s", s_wasm_ptr, _s, SizeOf!S);
+                        param_buf.write(cast(int) s_wasm_ptr);
+                    }
+                    else {
+                        static assert(0,
+                                "Not implemented yet (Must convert D types to WasmTypes)!!");
+                    }
                 }
-                else {
-                    static assert(0, "Not implemented yet (Must convert D types to WasmTypes)!!");
+                else static if (isPointer!(S)) {
+                    alias Target = PointerTarget!(S);
+                    static if (is(Target == struct)) {
+                        pragma(msg, "Pointer struct ", WasmType);
+                        const s_wasm_ptr = this.malloc(arg);
+                        param_buf.write(cast(int) s_wasm_ptr);
+                        writefln("s_wasm_ptr=%s", s_wasm_ptr);
+                        writefln("arg=%s", arg);
+
+                    }
+                    else {
+                        static assert(0, format!"Type %s is not supported yet!"(WasmType.stringof));
+                    }
                 }
             }
             else static if (is(WasmType == class)) {
@@ -209,7 +242,7 @@ static unittest {
             else {
                 pragma(msg, isCallable!WasmType);
                 pragma(msg, WamrSymbols.structToWasmType!(Params[0]));
-                static assert(0, format("Unsuported type %s", WasmType.stringof));
+                static assert(0, format!"Unsuported type %s"(WasmType.stringof));
             }
         }
 
@@ -235,6 +268,19 @@ static unittest {
         return result;
     }
 
+    final wasm_ptr_t malloc(T)(ref T ptr) nothrow @trusted @nogc
+            if (isPointer!T && is(PointerTarget!T == struct)) {
+//                printf("malloc %s\n", T.stringof.ptr);
+        return malloc(T.sizeof, ptr);
+    }
+
+    final WasmPointerType!T alloc(T)() nothrow @trusted @nogc
+        if (isPointer!T && is(PointerTarget!T == struct)) {
+//            alias Target = PointerTarget!T;
+            WasmPointerType!T result;
+            result.wasm_ptr=malloc(result._value);
+            return result;
+        }
 
     final void free(wasm_ptr_t memory_index) nothrow @trusted @nogc {
         if (memory_index) {
@@ -242,23 +288,31 @@ static unittest {
         }
     }
 
-    final wasm_ptr_t map_malloc(T, S)(const ref S s, ref T ptr) nothrow @trusted @nogc if (isPointer!T && is(S == struct)) {
+    final wasm_ptr_t map_malloc(T, S)(const ref S s, ref T ptr) nothrow @trusted @nogc
+        if (isPointer!T && is(S == struct)) {
         wasm_ptr_t result = wasm_runtime_module_malloc(module_inst, S.sizeof, cast(void**)&ptr);
         version (BigEndian) static assert(0, "Big-endian not supproted yet!");
         import core.stdc.string : memcpy;
+
         memcpy(ptr, &s, S.sizeof);
         return result;
     }
+
     /++
      This function copies a struct T to the the wasm runtime memory and return the location.
      Returns:
 
      +/
-    final wasm_ptr_t mirror(T)(ref const T ptr) nothrow @trusted @nogc
-        if (is(T==struct)) {
-        wasm_ptr_t result = wasm_runtime_malloc(module_inst, T.sizeof, cast(void**)&ptr);
-        return result;
-    }
+    // version(none)
+    // final wasm_ptr_t mirror(T)(ref const T ptr) nothrow @trusted @nogc
+    //     static if (is(T==struct)) {
+    //         wasm_ptr_t result = wasm_runtime_malloc(module_inst, T.sizeof, cast(void**)&ptr);
+    //         return result;
+    //     }
+    //     else {
+    //         static assert(0, );
+    //     }
+    // }
 
     ~this() @trusted {
         if (exec_env) {
@@ -327,6 +381,7 @@ static unittest {
                 signature.toStringz, // the function prototype signature, avoid to use i32
                 attachment // attachment if none the null
 
+
         };
         native_index[symbol] = native_symbols.length;
         native_symbols ~= native_symbol;
@@ -362,11 +417,18 @@ static unittest {
             alias BaseU = Unqual!(U);
             alias toWasmType = TVMEngine.WasmArray!BaseU;
         }
-        else static if (isPointer!T) {
-            alias toWasmType = wasm_ptr_t;
-        }
         else static if (is(T == struct)) {
             alias toWasmType = structToWasmType!T;
+        }
+        else static if (isPointer!T) {
+            alias Target = PointerTarget!T;
+            pragma(msg, "PointerTarget!T ", PointerTarget!T);
+            static if (is(Target == struct)) {
+                alias toWasmType = WasmPointerType!T;
+            }
+            else {
+                alias toWasmType = wasm_ptr_t;
+            }
         }
         else static if (check) {
             static assert(0, format("%s is not supported", T.stringof));
@@ -446,355 +508,9 @@ static unittest {
         }
         return result;
     }
-    /+
-    version(none) {
-        @trusted
-            struct Environment(F) if(isCallable!F) {
-            // @nogc:
-            F caller;
-            protected {
-                @nogc wasm_compartment_t* compartment;
-                @nogc wasm_trap_t* wasm_trap;
-            }
-            @disable this();
-            this(F caller, wasm_compartment_t* compartment) {
-                this.caller=caller;
-                this.compartment=compartment;
-            }
-            wasm_trap_t* trap(Exception e) {
-                if (wasm_trap !is null) {
-                    wasm_trap_delete(wasm_trap);
-                }
-                return wasm_trap=wasm_trap_new(compartment, e.msg.ptr, e.msg.length);
-            }
-            ~this() {
-                wasm_trap_delete(wasm_trap);
-                compartment=null;
-            }
-        }
-
-        version(none)
-            @trusted
-            struct WasmModule {
-            wasm_module_t* wasm_module;
-
-            this(WasmEngine e, string module_source) {
-                wasm_module = wasm_module_new_text(e.engine, module_source.ptr, module_source.length);
-                .check(wasm_module !is null, "Bad wasm source");
-
-            }
-
-            this(WasmEngine e, const(ubyte[]) module_binary) {
-                wasm_module = wasm_module_new(e.engine, cast(const(char*))(module_binary.ptr), module_binary.length);
-                .check(wasm_module !is null, "Bad wasm binary");
-            }
-
-            ~this() {
-                wasm_module_delete(wasm_module);
-            }
-        }
-
-        @trusted
-            struct WasmFunction {
-            wasm_func_t* wasm_func;
-            @disable this();
-
-            this(F) (F d_func, wasm_compartment_t* compartment, string debug_name=null) if (isFunctionPointer!F) {
-                // wasm_functype_t* func_type;
-                // wasm_functype_t* this(F)(F func) {
-                alias Params=ParameterTypeTuple!F;
-                pragma(msg, Params);
-                auto param_types=new wasm_valtype_t*[Params.length];
-                // scope(exit) {
-                //     foreach(ref p; param_type) {
-                //         free(p);
-                //     }
-                // }
-                static foreach(i, P; Params) {
-                    alias BaseT=Unqual!(Params[i]);
-                    static if (is(BaseT==int) || is(BaseT==uint)) {
-                        param_types[i]=wasm_valtype_new(wasm_valkind_enum.WASM_I32);
-                    }
-                    else static if (is(BaseT==long) || is(BaseT==ulong)) {
-                        param_types[i]=wasm_valtype_new(wasm_valkind_enum.WASM_I64);
-                    }
-                    else static if (is(BaseT==float)) {
-                        param_types[i]=wasm_valtype_new(wasm_valkind_enum.WASM_F32);
-                    }
-                    else static if (is(BaseT==float)) {
-                        param_types[i]=wasm_valtype_new(wasm_valkind_enum.WASM_F64);
-                    }
-                    else {
-                        static assert(0, format("Function parameter %s not supported", Params[i].stringof));
-                    }
-                }
-                alias Returns=ReturnType!F;
-                wasm_valtype_t*[] return_types;
-                // scope(exit) {
-                //     foreach(ref r; return_type) {
-                //         free(r);
-                //     }
-                // }
-                pragma(msg, "Returns=",Returns);
-                static if (isBasicType!Returns) {
-                    return_types.length=1;
-                    alias RetT=Unqual!Returns;
-                    enum i=0;
-                    static if (is(RetT==int) || is(RetT==uint)) {
-                        return_types[i]=wasm_valtype_new(wasm_valkind_enum.WASM_I32);
-                    }
-                    else static if (is(RetT==long) || is(RetT==ulong)) {
-                        return_types[i]=wasm_valtype_new(wasm_valkind_enum.WASM_I64);
-                    }
-                    else static if (is(RetT==float)) {
-                        return_types[i]=wasm_valtype_new(wasm_valkind_enum.WASM_F32);
-                    }
-                    else static if (is(RetT==float)) {
-                        return_types[i]=wasm_valtype_new(wasm_valkind_enum.WASM_F64);
-                    }
-                    else {
-                        static assert(0, format("Function parameter %s not supported", Returns.stringof));
-                    }
-                }
-                else {
-                    static assert(0, format("Return type %s is not yet supported", Returns.stringof));
-                }
-
-                pragma(msg, "param_types.ptr=", typeof(param_types.ptr));
-                pragma(msg, "return_types.ptr =", typeof(return_types.ptr));
-                wasm_functype_t* func_type = wasm_functype_new(param_types.ptr, param_types.length, return_types.ptr, return_types.length);
-                scope(exit) {
-                    wasm_functype_delete(func_type);
-
-                }
-                extern(C) void function (void*) finalizer;
-                auto env=new Environment!F(d_func, compartment);
-                auto void_env=cast(void*)env;
-                auto func_callback=&callback!F;
-                wasm_func = wasm_func_new_with_env (
-                    compartment,
-                    func_type,
-                    func_callback,
-                    void_env,
-                    finalizer,
-                    toStringz(debug_name));
-
-            }
-
-        }
-
-        private {
-            @nogc {
-                wasm_compartment_t* compartment;
-                wasm_store_t* store;
-                const(char*) store_name_strz;
-                const(char*) compartment_name_strz;
-                wasm_instance_t* wasm_instance;
-            }
-            WasmFunction[] imports;
-            wasm_module_t* wasm_module;
-            WasmEngine engine;
-            //WasmModule wasm_module;
-        }
-
-        @trusted
-            private void createModule(string module_source) {
-            wasm_module = wasm_module_new_text(engine.wasm_engine, module_source.ptr, module_source.length);
-            .check(wasm_module !is null, "Bad wasm source");
-
-        }
-
-        @trusted
-            private void createModule(const(ubyte[]) module_binary) {
-            wasm_module = wasm_module_new(engine.wasm_engine, cast(const(char*))(module_binary.ptr), module_binary.length);
-            .check(wasm_module !is null, "Bad wasm binary");
-        }
-
-        @disable this();
-        @trusted
-            this(M)(ref WasmEngine e, M module_source, string store_name, string compartment_name) {
-            engine=e;
-            compartment_name_strz=create_strz(compartment_name);
-            store_name_strz=create_strz(store_name);
-            compartment=wasm_compartment_new(e.wasm_engine, compartment_name_strz);
-            store=wasm_store_new(compartment, store_name_strz);
-            createModule(module_source);
-        }
-
-        @trusted
-            ~this() {
-            wasm_store_delete(store);
-            wasm_compartment_delete(compartment);
-            free(cast(void*)store_name_strz);
-            free(cast(void*)compartment_name_strz);
-            wasm_instance_delete(wasm_instance);
-            wasm_module_delete(wasm_module);
-        }
-
-
-        @trusted
-            static void set_params(T)(ref T p,  const wasm_val_t* args, ref size_t argi) {
-            scope(success) {
-                argi++;
-            }
-            alias BaseT=Unqual!T;
-            static if (is(BaseT==int) || is(BaseT==uint)) {
-                p=cast(T)(args[argi].i32);
-            }
-            else static if (is(BaseT==long) || is(BaseT==ulong)) {
-                p=cast(T)(args[argi].i64);
-            }
-            else static if (is(BaseT==float)) {
-                p=cast(T)(args[argi].f32);
-            }
-            else static if (is(BaseT==double)) {
-                p=cast(T)(args[argi].f64);
-            }
-            else static if (is(T==struct)) {
-                foreach(ref sub_p; p.tupleof) {
-                    set_params(sub_p, argi, args);
-                }
-            }
-            else static if (is(isTuple!T)) {
-                foreach(ref sub_p; p) {
-                    set_params(sub_p, argi, args);
-                }
-            }
-            else {
-                static assert(0, format("Paramter type %s is not supported yet", T.stringof));
-            }
-        }
-
-        @trusted
-            static void set_results(T)(in T returns, wasm_val_t* wasm_results, const size_t reti=0) {
-            static if (isBasicType!T) {
-                alias BaseT=Unqual!T;
-                static if(is(BaseT==int) || is(BaseT==uint)) {
-                    wasm_results[reti].i32=cast(int)returns;
-                }
-                else static if(is(BaseT==long) || is(BaseT==ulong)) {
-                    wasm_results[reti].i64=cast(long)returns;
-                }
-                else static if(is(BaseT==float)) {
-                    wasm_results[reti].f32=cast(float)returns;
-                }
-                else static if(is(BaseT==double)) {
-                    wasm_results[reti].f64=cast(double)returns;
-                }
-                else {
-                    static assert(0, format("Return type %s not supported", T.stringof));
-                }
-            }
-            else {
-                static assert(0, format("Return type %s not implemented yet", T.stringof));
-            }
-        }
-
-        private static void*[] context;
-
-        extern(C) {
-            @trusted
-                private static wasm_trap_t* callback(F)(const wasm_val_t* args, wasm_val_t* results) if (isCallable!F) {
-                alias Env=Environment!F;
-                pragma(msg, "F=", F, " : ", isFunctionPointer!F);
-                auto func_env=cast(Env*)env;
-                Tuple!(ParameterTypeTuple!(F)) params;
-                pragma(msg, ParameterTypeTuple!(F), " # ",  typeof(params));
-                size_t argi;
-                foreach(ref p; params) {
-                    set_params(p, args, argi);
-                }
-
-                try {
-                    static if (is(Returns!F==void)) {
-                        func_env.caller(params.expand);
-                    }
-                    else {
-                        auto returns=func_env.caller(params.expand);
-                        set_results(returns, results);
-                    }
-                }
-                catch (Exception e) {
-                    return func_env.trap(e);
-                }
-                return null;
-            }
-        }
-
-        /++
-         Defines a callback function from Wasm to D
-         +/
-        @trusted
-            void external(F)(F func, string debug_name=null) if (isCallable!F) {
-            pragma(msg, "is(F==function)=", is(F==function), " ", isFunctionPointer!F) ;
-            alias PSTC=ParameterStorageClassTuple!F;
-            static foreach(i;0..PSTC.length) {
-                static assert(PSTC[i] is ParameterStorageClass.none,
-                    format("Parameter class '%s' is not allowed %s", PSTC[i], ParameterStorageClass.none));
-            }
-//        enum id=typeid(F);
-            if (debug_name is null) {
-                debug_name=F.stringof;
-            }
-            pragma(msg, typeof(WasmFunction(func, compartment, debug_name)));
-            imports~=WasmFunction(func, compartment, debug_name);
-            // return this;
-        }
-
-        void internal(F)(ref F func, const uint index, string debug_name=0) if(isFunctionPointer!F) {
-
-        }
-        /*
-          tagion/vm/wavm/Wavm.d(364): Error:
-          function wavm.c.wavm.wasm_instance_new(
-          wasm_store_t*,
-          const(wasm_module_t)*,
-          const(wasm_extern_t*)* imports,
-          wasm_trap_t**,
-          const(char)* debug_name)
-          is not callable using argument types (
-          wasm_store_t*,
-          wasm_engine_t*,
-          wasm_extern_t**,
-          typeof(null),
-          immutable(char)*)
-        */
-/*
-  tagion/vm/wavm/Wavm.d(328): Error: function
-  wavm.c.wavm.wasm_instance_new(
-  wasm_store_t*,
-  const(wasm_module_t)*,
-  const(wasm_extern_t*)* imports,
-  wasm_trap_t**,
-  const(char)* debug_name)
-  is not callable using argument types (
-  wasm_store_t*,
-  const(wasm_module_t*),
-  wasm_extern_t*[],
-  typeof(null),
-  immutable(char)*)
-*/
-        @trusted
-            private void _import(string debug_name) {
-            if (wasm_instance is null) {
-                @nogc wasm_extern_t*[] _imports;
-                pragma(msg, typeof((cast(wasm_extern_t**)calloc((wasm_extern_t*).sizeof, imports.length))[0..imports.length]));
-                _imports=(cast(wasm_extern_t**)calloc((wasm_extern_t*).sizeof, imports.length))[0..imports.length];
-                scope(exit) {
-                    free(_imports.ptr);
-                }
-                foreach(i, imp; imports) {
-                    _imports[i]=wasm_func_as_extern(imp.wasm_func);
-                }
-                wasm_instance = wasm_instance_new(store, wasm_module, _imports.ptr, null, "instance\0".ptr);
-            }
-        }
-    }
-+/
 }
 
-version(none)
-unittest {
+version (none) unittest {
     import src.native_impl;
     import std.stdio;
     import std.file : fread = read, exists;
