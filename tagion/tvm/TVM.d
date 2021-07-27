@@ -3,7 +3,7 @@ module tagion.tvm.TVM;
 import std.traits : isFunctionPointer, ParameterStorageClassTuple,
     ParameterStorageClass, ParameterTypeTuple, ReturnType, Fields,
     isBasicType, Unqual, isCallable, isPointer, isFunction, isFloatingPoint,
-isSomeString, ForeachType, hasMember, isImplicitlyConvertible,
+isSomeString, ForeachType, hasMember, isImplicitlyConvertible, TemplateOf, TemplateArgsOf,
 PointerTarget;
 import std.meta : staticMap, Alias, AliasSeq, allSatisfy, anySatisfy, ApplyLeft;
 import std.typecons : Typedef, TypedefType;
@@ -25,9 +25,9 @@ alias wasm_ptr_t = Typedef!(int, int.init, "wasm_ptr");
 struct WasmPointerType(T) {
     static assert(isPointer!T);
     wasm_ptr_t wasm_ptr;
-    T* _value;
+    T _value;
     auto opDispatch(string name)() {
-        mixin(format!(q{return _value.%s})(name));
+        mixin(format!(q{return _value.%s;})(name));
     }
 }
 
@@ -200,7 +200,7 @@ static unittest {
                 alias S = Params[0];
                 pragma(msg, "-> is(S == struct) ", is(S == struct), " ", isPointer!S);
                 static if (is(S == struct) && is(WasmType == WamrSymbols.structToWasmType!S)) {
-                    pragma(msg, S);
+                    pragma(msg, "S ", S);
                     //                alias S=Params[0];
                     pragma(msg, "isWasmType!S ", isWasmType!S,
                             " isPointer ", isPointer!S, " ", S);
@@ -211,7 +211,18 @@ static unittest {
                         writefln("s_wasm_ptr=%d %s %s", s_wasm_ptr, _s, SizeOf!S);
                         param_buf.write(cast(int) s_wasm_ptr);
                     }
+                    else static if (is(S == WasmPointerType!(TemplateArgsOf!S))) {
+                        param_buf.write(cast(int) arg.wasm_ptr);
+
+
+                        pragma(msg, "TemplateArgsOf ", TemplateArgsOf!S);
+                        pragma(msg, "TemplateOf ", is(S == WasmPointerType!(TemplateArgsOf!S)));
+                    }
                     else {
+                    alias Temp= TemplateOf!(S);
+                    pragma(msg, "TemplateOf ", Temp.stringof, " ", __traits(isTemplate, S));
+
+                    pragma(msg, "TemplateArgs ", TemplateArgsOf!S);
                         static assert(0,
                                 "Not implemented yet (Must convert D types to WasmTypes)!!");
                     }
@@ -241,7 +252,7 @@ static unittest {
             }
             else {
                 pragma(msg, isCallable!WasmType);
-                pragma(msg, WamrSymbols.structToWasmType!(Params[0]));
+//                pragma(msg, WamrSymbols.structToWasmType!(Params[0]));
                 static assert(0, format!"Unsuported type %s"(WasmType.stringof));
             }
         }
@@ -276,6 +287,7 @@ static unittest {
 
     final WasmPointerType!T alloc(T)() nothrow @trusted @nogc
         if (isPointer!T && is(PointerTarget!T == struct)) {
+            pragma(msg, "alloc ", T);
 //            alias Target = PointerTarget!T;
             WasmPointerType!T result;
             result.wasm_ptr=malloc(result._value);
@@ -286,6 +298,12 @@ static unittest {
         if (memory_index) {
             wasm_runtime_module_free(module_inst, cast(TypedefType!wasm_ptr_t) memory_index);
         }
+    }
+
+    final void free(S)(ref S ptr) nothrow @trusted @nogc
+        if (is(S == WasmPointerType!(TemplateArgsOf!S))) {
+        wasm_runtime_module_free(module_inst, cast(TypedefType!wasm_ptr_t)
+            ptr.wasm_ptr);
     }
 
     final wasm_ptr_t map_malloc(T, S)(const ref S s, ref T ptr) nothrow @trusted @nogc
