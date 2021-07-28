@@ -294,17 +294,32 @@ static unittest {
             return result;
         }
 
-    final void free(wasm_ptr_t memory_index) nothrow @trusted @nogc {
-        if (memory_index) {
-            wasm_runtime_module_free(module_inst, cast(TypedefType!wasm_ptr_t) memory_index);
+    final void free(S)(ref S ptr) nothrow @trusted @nogc {
+        static if (is(TypedefType!S == int)) {
+        // if (memory_index) {
+            wasm_runtime_module_free(module_inst, cast(int) ptr);
+        }
+        else static if (is(S == WasmPointerType!(TemplateArgsOf!S))) {
+            wasm_runtime_module_free(module_inst, cast(TypedefType!wasm_ptr_t)
+            ptr.wasm_ptr);
+        }
+        else {
+            static assert(0, format!"Type %s not supported"(PTR.stringof));
         }
     }
+    // }
 
+    version(none)
     final void free(S)(ref S ptr) nothrow @trusted @nogc
-        if (is(S == WasmPointerType!(TemplateArgsOf!S))) {
-        wasm_runtime_module_free(module_inst, cast(TypedefType!wasm_ptr_t)
+        if (!is(TypedefType!PTR == int) && is(S == WasmPointerType!(TemplateArgsOf!S))) {
+            wasm_runtime_module_free(module_inst, cast(TypedefType!wasm_ptr_t)
             ptr.wasm_ptr);
-    }
+        }
+    //     else {
+    //         pragma(msg, "ref S ", S);
+    //         static assert(0, "S "~S.stringof~" not supported");
+    //     }
+    // }
 
     final wasm_ptr_t map_malloc(T, S)(const ref S s, ref T ptr) nothrow @trusted @nogc
         if (isPointer!T && is(S == struct)) {
