@@ -32,13 +32,11 @@ LIBRARY:=$(BIN)/$(LIBNAME)
 
 WAYS+=${BIN}
 
-SOURCE:=tagion/tvm/
+SOURCE:=tagion/tvm
 PACKAGE:=${subst /,.,$(SOURCE)}
 REVISION:=$(REPOROOT)/$(SOURCE)/revision.di
 
 -include dstep.mk
-
-# include $(MAINROOT)/../tagion_utils/dfiles.mk
 
 TAGION_BASIC:=$(MAINROOT)/tagion_basic/
 TAGION_UTILS:=$(MAINROOT)/tagion_utils/

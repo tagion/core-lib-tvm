@@ -87,8 +87,6 @@ ifndef DFILES
 include $(REPOROOT)/source.mk
 endif
 
-
-
 include $(REPOROOT)/revision.mk
 
 ifndef DFILES
@@ -106,6 +104,8 @@ unittest: dodi $(UNITTEST)
 
 debug: $(UNITTEST)
 	export LD_LIBRARY_PATH=$(LIBBRARY_PATH); ddd $(UNITTEST)
+
+revision:$(REVISION)
 
 $(UNITTEST): $(LIBS) $(WAYS)
 	$(PRECMD)$(DC) $(DCFLAGS) $(INCFLAGS) $(DFILES) $(TESTDCFLAGS) $(LDCFLAGS) $(OUTPUT)$@

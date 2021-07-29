@@ -4,8 +4,8 @@ include cfiles.mk
 
 WASMAPPROOT:=wasm-apps
 
-#CC:=clang
-CC:=gcc
+CC:=clang-10
+#CC:=gcc
 SRC:=src
 BIN:=bin
 

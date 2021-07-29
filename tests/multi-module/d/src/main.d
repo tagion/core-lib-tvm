@@ -1,10 +1,10 @@
 module src.main;
 
-import tagion.vm.wamr.c.wasm_export;
-import tagion.vm.wamr.c.lib_export;
+import tagion.tvm.c.wasm_export;
+import tagion.tvm.c.lib_export;
 //import tagion.vm.wamr.c.wasm_runtime_common;
 
-import tagion.vm.wamr.revision;
+import tagion.tvm.revision;
 
 import std.getopt;
 import std.format;
