@@ -100,3 +100,9 @@ clean:
 
 count:
 	@cat $(DEPS:.c.o=.c) | wc -l
+
+CFILES:=$(DEPS:.c.o=.c)
+
+cfiles:
+	@echo $(CFILES)
+	cp $(CFILES) tagion/tvm/wamr/
