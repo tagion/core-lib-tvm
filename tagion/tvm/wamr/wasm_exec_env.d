@@ -233,7 +233,7 @@ protected WASMInterpFrame* wasm_exec_env_get_cur_frame(WASMExecEnv* exec_env) {
  */
 
 // #include "wasm_exec_env.h"
-import tagion.tvm.wamr.wasm_runtime_common.h;
+import tagion.tvm.wamr.wasm_runtime_common;
 
 // #if WASM_ENABLE_THREAD_MGR != 0
 // #include "../libraries/thread-mgr/thread_manager.h"
