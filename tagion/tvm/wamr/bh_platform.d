@@ -28,6 +28,8 @@ module tagion.tvm.wamr.bh_platform;
 
 // all wasm-app<->native shared source files should use WA_MALLOC/WA_FREE.
 // they will be mapped to different implementations in each side
+import core.stdc.stdlib : malloc, free;
+
 alias WA_MALLOC = malloc;
 
 alias WA_FREE = free;

@@ -5,13 +5,23 @@
 module tagion.tvm.wamr.wasm_runtime_common;
 
 import tagion.tvm.wamr.bh_platform;
+import tagion.tvm.wamr.bh_assert;
+import tagion.tvm.wamr.bh_log;
 import tagion.tvm.wamr.bh_common;
+import tagion.tvm.wamr.bh_list;
 import tagion.tvm.wamr.wasm_exec_env;
 import tagion.tvm.wamr.wasm_native;
-import tagion.tvm.wamr.wasm_exmport;
+import tagion.tvm.wamr.wasm_export;
+import tagion.tvm.wamr.lib_export;
 import tagion.tvm.wamr.wasm;
-import tagion.tvm.wamr.wasmtime_ssp;
+import tagion.tvm.platform.platform;
+//import tagion.tvm.wamr.wasmtime_ssp;
 
+import core.stdc.string;
+import core.stdc.stdio;
+import core.stdc.stdlib;
+import core.stdc.math : isnan;
+import core.stdc.errno;
 @nogc:
 nothrow:
 /+
@@ -64,7 +74,7 @@ version (WASM_ENABLE_LIBC_WASI) {
            cannot be accessed again. */
         int curfds_offset;
         int prestats_offset;
-        int32 argv_environ_offset;
+        int argv_environ_offset;
     }
 }
 
@@ -102,12 +112,12 @@ wasm_runtime_destroy();
 
 /* See wasm_export.h for description */
 PackageType
-get_package_type(const uint8 *buf, uint size);
+get_package_type(const ubyte *buf, uint size);
 
 
 /* See wasm_export.h for description */
 WASMModuleCommon *
-wasm_runtime_load(const uint8 *buf, uint size,
+wasm_runtime_load(const ubyte *buf, uint size,
                   char *error_buf, uint error_buf_size);
 
 /* See wasm_export.h for description */
@@ -207,12 +217,12 @@ wasm_runtime_create_exec_env_and_call_wasm(WASMModuleInstanceCommon *module_inst
 /* See wasm_export.h for description */
 bool
 wasm_application_execute_main(WASMModuleInstanceCommon *module_inst,
-                              int32 argc, char *argv[]);
+                              int argc, char *argv[]);
 
 /* See wasm_export.h for description */
 bool
 wasm_application_execute_func(WASMModuleInstanceCommon *module_inst,
-                              const char *name, int32 argc, char *argv[]);
+                              const char *name, int argc, char *argv[]);
 
 /* See wasm_export.h for description */
 void
@@ -237,28 +247,28 @@ void *
 wasm_runtime_get_custom_data(WASMModuleInstanceCommon *module_inst);
 
 /* See wasm_export.h for description */
-int32
+int
 wasm_runtime_module_malloc(WASMModuleInstanceCommon *module_inst, uint size,
                            void **p_native_addr);
 
 /* See wasm_export.h for description */
 void
-wasm_runtime_module_free(WASMModuleInstanceCommon *module_inst, int32 ptr);
+wasm_runtime_module_free(WASMModuleInstanceCommon *module_inst, int ptr);
 
 /* See wasm_export.h for description */
-int32
+int
 wasm_runtime_module_dup_data(WASMModuleInstanceCommon *module_inst,
                              const char *src, uint size);
 
 /* See wasm_export.h for description */
 bool
 wasm_runtime_validate_app_addr(WASMModuleInstanceCommon *module_inst,
-                               int32 app_offset, uint size);
+                               int app_offset, uint size);
 
 /* See wasm_export.h for description */
 bool
 wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon *module_inst,
-                                   int32 app_str_offset);
+                                   int app_str_offset);
 
 /* See wasm_export.h for description */
 bool
@@ -268,26 +278,26 @@ wasm_runtime_validate_native_addr(WASMModuleInstanceCommon *module_inst,
 /* See wasm_export.h for description */
 void *
 wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon *module_inst,
-                                int32 app_offset);
+                                int app_offset);
 
 /* See wasm_export.h for description */
-int32
+int
 wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon *module_inst,
                                 void *native_ptr);
 
 /* See wasm_export.h for description */
 bool
 wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon *module_inst,
-                                int32 app_offset,
-                                int32 *p_app_start_offset,
-                                int32 *p_app_end_offset);
+                                int app_offset,
+                                int *p_app_start_offset,
+                                int *p_app_end_offset);
 
 /* See wasm_export.h for description */
 bool
 wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon *module_inst,
-                                   uint8 *native_ptr,
-                                   uint8 **p_native_start_addr,
-                                   uint8 **p_native_end_addr);
+                                   ubyte *native_ptr,
+                                   ubyte **p_native_start_addr,
+                                   ubyte **p_native_end_addr);
 
 uint
 wasm_runtime_get_temp_ret(WASMModuleInstanceCommon *module_inst);
@@ -317,7 +327,7 @@ wasm_runtime_get_module_destroyer();
 bool
 wasm_runtime_register_module_internal(const char *module_name,
                                       WASMModuleCommon *module,
-                                      uint8 *orig_file_buf,
+                                      ubyte *orig_file_buf,
                                       uint orig_file_buf_size,
                                       char *error_buf,
                                       uint error_buf_size);
@@ -502,7 +512,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
-    private void* runtime_malloc(ulong size,
+    private void* runtime_malloc(uint size,
             WASMModuleInstanceCommon* module_inst, char* error_buf, uint error_buf_size) {
         void* mem;
 
@@ -654,7 +664,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         return true;
     }
 
-    PackageType get_package_type(const uint8* buf, uint size) {
+    PackageType get_package_type(const ubyte* buf, uint size) {
         if (buf && size >= 4) {
             if (buf[0] == '\0' && buf[1] == 'a' && buf[2] == 's' && buf[3] == 'm')
                 return Wasm_Module_Bytecode;
@@ -696,8 +706,8 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         }
 
         bool wasm_runtime_register_module_internal(const char* module_name, WASMModuleCommon* wasm_mod,
-                uint8* orig_file_buf, uint orig_file_buf_size,
-                char* error_buf, uint_t error_buf_size) {
+                ubyte* orig_file_buf, uint orig_file_buf_size,
+                char* error_buf, uint error_buf_size) {
             WASMRegisteredModule* node = null;
 
             node = wasm_runtime_find_module_registered_by_reference(wasm_mod);
@@ -746,7 +756,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         }
 
         bool wasm_runtime_register_module(const char* module_name,
-                WASMModuleCommon* wasm_mod, char* error_buf, uint_t error_buf_size) {
+                WASMModuleCommon* wasm_mod, char* error_buf, uint error_buf_size) {
             if (!error_buf || !error_buf_size) {
                 LOG_ERROR("error buffer is required");
                 return false;
@@ -982,7 +992,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
-    WASMModuleCommon* wasm_runtime_load(const uint8* buf, uint size,
+    WASMModuleCommon* wasm_runtime_load(const ubyte* buf, uint size,
             char* error_buf, uint error_buf_size) {
         WASMModuleCommon* module_common = null;
 
@@ -1028,7 +1038,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     WASMModuleCommon* wasm_runtime_load_from_sections(WASMSection* section_list,
-            bool is_aot, char* error_buf, uint_t error_buf_size) {
+            bool is_aot, char* error_buf, uint error_buf_size) {
         WASMModuleCommon* module_common;
 
         version (WASM_ENABLE_INTERP) {
@@ -1254,7 +1264,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         return null;
     }
 
-    int32 wasm_runtime_module_malloc(WASMModuleInstanceCommon* module_inst,
+    int wasm_runtime_module_malloc(WASMModuleInstanceCommon* module_inst,
             uint size, void** p_native_addr) {
         version (WASM_ENABLE_INTERP) {
             if (module_inst.module_type == Wasm_Module_Bytecode)
@@ -1269,7 +1279,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         return 0;
     }
 
-    void wasm_runtime_module_free(WASMModuleInstanceCommon* module_inst, int32 ptr) {
+    void wasm_runtime_module_free(WASMModuleInstanceCommon* module_inst, int ptr) {
         version (WASM_ENABLE_INTERP) {
             if (module_inst.module_type == Wasm_Module_Bytecode) {
                 wasm_module_free(cast(WASMModuleInstance*) module_inst, ptr);
@@ -1284,7 +1294,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         }
     }
 
-    int32 wasm_runtime_module_dup_data(WASMModuleInstanceCommon* module_inst,
+    int wasm_runtime_module_dup_data(WASMModuleInstanceCommon* module_inst,
             const char* src, uint size) {
         version (WASM_ENABLE_INTERP) {
             if (module_inst.module_type == Wasm_Module_Bytecode) {
@@ -1300,7 +1310,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     bool wasm_runtime_validate_app_addr(WASMModuleInstanceCommon* module_inst,
-            int32 app_offset, uint size) {
+            int app_offset, uint size) {
         version (WASM_ENABLE_INTERP) {
             if (module_inst.module_type == Wasm_Module_Bytecode)
                 return wasm_validate_app_addr(cast(WASMModuleInstance*) module_inst,
@@ -1314,8 +1324,8 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     bool wasm_runtime_validate_app_str_addr(WASMModuleInstanceCommon* module_inst,
-            int32 app_str_offset) {
-        int32 app_end_offset;
+            int app_str_offset) {
+        int app_end_offset;
         char* str;
         char** str_end;
 
@@ -1354,7 +1364,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         return false;
     }
 
-    void* wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon* module_inst, int32 app_offset) {
+    void* wasm_runtime_addr_app_to_native(WASMModuleInstanceCommon* module_inst, int app_offset) {
         version (WASM_ENABLE_INTERP) {
             if (module_inst.module_type == Wasm_Module_Bytecode)
                 return wasm_addr_app_to_native(cast(WASMModuleInstance*) module_inst, app_offset);
@@ -1367,7 +1377,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         return null;
     }
 
-    int32 wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon* module_inst, void* native_ptr) {
+    int wasm_runtime_addr_native_to_app(WASMModuleInstanceCommon* module_inst, void* native_ptr) {
         version (WASM_ENABLE_INTERP) {
             if (module_inst.module_type == Wasm_Module_Bytecode) {
                 return wasm_addr_native_to_app(cast(WASMModuleInstance*) module_inst, native_ptr);
@@ -1382,7 +1392,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     bool wasm_runtime_get_app_addr_range(WASMModuleInstanceCommon* module_inst,
-            int32 app_offset, int32* p_app_start_offset, int32* p_app_end_offset) {
+            int app_offset, int* p_app_start_offset, int* p_app_end_offset) {
         version (WASM_ENABLE_INTERP) {
             if (module_inst.module_type == Wasm_Module_Bytecode) {
                 return wasm_get_app_addr_range(cast(WASMModuleInstance*) module_inst,
@@ -1399,7 +1409,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     bool wasm_runtime_get_native_addr_range(WASMModuleInstanceCommon* module_inst,
-            uint8_t* native_ptr, uint8_t** p_native_start_addr, uint8_t** p_native_end_addr) {
+            ubyte* native_ptr, ubyte** p_native_start_addr, ubyte** p_native_end_addr) {
         version (WASM_ENABLE_INTERP) {
             if (module_inst.module_type == Wasm_Module_Bytecode) {
                 return wasm_get_native_addr_range(cast(WASMModuleInstance*) module_inst,
@@ -1530,13 +1540,13 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
             fd_table* curfds;
             fd_prestats* prestats;
             argv_environ_values* argv_environ;
-            int32 offset_argv_offsets = 0, offset_env_offsets = 0;
-            int32 offset_argv_buf = 0, offset_env_buf = 0;
-            int32 offset_curfds = 0;
-            int32 offset_prestats = 0;
-            int32 offset_argv_environ = 0;
+            int offset_argv_offsets = 0, offset_env_offsets = 0;
+            int offset_argv_buf = 0, offset_env_buf = 0;
+            int offset_curfds = 0;
+            int offset_prestats = 0;
+            int offset_argv_environ = 0;
             __wasi_fd_t wasm_fd = 3;
-            int32 raw_fd;
+            int raw_fd;
             char* path;
             char[PATH_MAX] resolved_path;
             ulong total_size;
@@ -1845,17 +1855,17 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
     }
 
     bool wasm_application_execute_main(WASMModuleInstanceCommon* module_inst,
-            int32 argc, char*[] argv) {
+            int argc, char*[] argv) {
         WASMFunctionInstanceCommon* func;
         WASMType* func_type = null;
         uint argc1 = 0;
         uint[2] argv1;
         uint total_argv_size = 0;
         ulong total_size;
-        int32 argv_buf_offset, i;
+        int argv_buf_offset, i;
         char* argv_buf;
         char** p, p_end;
-        int32* argv_offsets;
+        int* argv_offsets;
 
         version (WASM_ENABLE_LIBC_WASI) {
             if (wasm_runtime_is_wasi_mode(module_inst)) {
@@ -1907,7 +1917,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
                 total_argv_size += cast(uint)(strlen(argv[i]) + 1);
             total_argv_size = align_uint(total_argv_size, 4);
 
-            total_size = cast(ulong) total_argv_size + int32.sizeof * cast(ulong) argc;
+            total_size = cast(ulong) total_argv_size + int.sizeof * cast(ulong) argc;
 
             if (total_size >= uint.max || !(argv_buf_offset = wasm_runtime_module_malloc(module_inst,
                     cast(uint) total_size, cast(void**)&argv_buf))) {
@@ -1916,12 +1926,12 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
             }
 
             p = argv_buf;
-            argv_offsets = cast(int32*)(p + total_argv_size);
+            argv_offsets = cast(int*)(p + total_argv_size);
             p_end = p + total_size;
 
             for (i = 0; i < argc; i++) {
                 bh_memcpy_s(p, cast(uint)(p_end - p), argv[i], cast(uint)(strlen(argv[i]) + 1));
-                argv_offsets[i] = argv_buf_offset + cast(int32)(p - argv_buf);
+                argv_offsets[i] = argv_buf_offset + cast(int)(p - argv_buf);
                 p += strlen(argv[i]) + 1;
             }
 
@@ -2103,22 +2113,22 @@ union ieee754_double {
 
 union __UE {
     int a;
-    char b;
+    ubyte b;
 }
 
 static __UE __ue = {a: 1};
 
-void is_little_endian() {
-    __ue.b == 1;
+static bool is_little_endian() {
+    return __ue.b == 1;
 }
 
 bool wasm_application_execute_func(WASMModuleInstanceCommon* module_inst,
-        const char* name, int32 argc, char*[] argv) {
+        const char* name, int argc, char*[] argv) {
     WASMFunctionInstanceCommon* func;
     WASMType* type = null;
     uint argc1, cell_num, j, k = 0;
     uint* argv1 = null;
-    int32 i, p;
+    int i, p;
     ulong total_size;
     const char* exception;
     char[128] buf;
@@ -2128,8 +2138,8 @@ bool wasm_application_execute_func(WASMModuleInstanceCommon* module_inst,
     func = resolve_function(module_inst, name);
 
     if (!func) {
-        snprintf(buf, sizeof(buf), "lookup function %s failed.", name);
-        wasm_runtime_set_exception(module_inst, buf);
+        snprintf(buf.ptr, buf.length, "lookup function %s failed.".ptr, name);
+        wasm_runtime_set_exception(module_inst, buf.ptr);
         goto fail;
     }
 
@@ -2181,8 +2191,8 @@ bool wasm_application_execute_func(WASMModuleInstanceCommon* module_inst,
         char* endptr = null;
         bh_assert(argv[i]!is null);
         if (argv[i][0] == '\0') {
-            snprintf(buf, buf.length, "invalid input argument %d.", i);
-            wasm_runtime_set_exception(module_inst, buf);
+            snprintf(buf.ptr, buf.length, "invalid input argument %d.".ptr, i);
+            wasm_runtime_set_exception(module_inst, buf.ptr);
             goto fail;
         }
         switch (type.types[i]) {
@@ -2202,7 +2212,7 @@ bool wasm_application_execute_func(WASMModuleInstanceCommon* module_inst,
                 break;
             }
         case VALUE_TYPE_F32: {
-                float32 f32 = strtof(argv[i], &endptr);
+                float f32 = strtof(argv[i], &endptr);
                 if (isnan(f32)) {
                     if (argv[i][0] == '-') {
                         ieee754_float u;
@@ -2280,7 +2290,7 @@ bool wasm_application_execute_func(WASMModuleInstanceCommon* module_inst,
             goto fail;
         }
     }
-    bh_assert(p == cast(int32) argc1);
+    bh_assert(p == cast(int) argc1);
 
     wasm_runtime_set_exception(module_inst, null);
     if (!wasm_runtime_create_exec_env_and_call_wasm(module_inst, func, argc1, argv1)) {
@@ -2321,7 +2331,7 @@ bool wasm_application_execute_func(WASMModuleInstanceCommon* module_inst,
                 break;
             }
         case VALUE_TYPE_F32:
-            os_printf("%.7g:f32", *cast(float32*)(argv1 + k));
+            os_printf("%.7g:f32", *cast(float*)(argv1 + k));
             k++;
             break;
         case VALUE_TYPE_F64: {
@@ -2375,7 +2385,7 @@ bool wasm_runtime_invoke_native_raw(WASMExecEnv* exec_env, void* func_ptr,
     ulong[16] argv_buf, size;
     ulong* argv1 = argv_buf, argv_dst;
     uint* argv_src = argv, i, argc1, ptr_len;
-    int32 arg_i32;
+    int arg_i32;
     bool ret = false;
 
     argc1 = func_type.param_count;
@@ -2392,7 +2402,7 @@ bool wasm_runtime_invoke_native_raw(WASMExecEnv* exec_env, void* func_ptr,
     for (i = 0; i < func_type.param_count; i++, argv_dst++) {
         switch (func_type.types[i]) {
         case VALUE_TYPE_I32: {
-                *cast(int32*) argv_dst = arg_i32 = cast(int32)*argv_src++;
+                *cast(int*) argv_dst = arg_i32 = cast(int)*argv_src++;
                 if (signature) {
                     if (signature[i + 1] == '*') {
                         /* param is a pointer */
@@ -2424,7 +2434,7 @@ bool wasm_runtime_invoke_native_raw(WASMExecEnv* exec_env, void* func_ptr,
             argv_src += 2;
             break;
         case VALUE_TYPE_F32:
-            *cast(float32*) argv_dst = *cast(float32*) argv_src++;
+            *cast(float*) argv_dst = *cast(float*) argv_src++;
             break;
         default:
             bh_assert(0);
@@ -2442,7 +2452,7 @@ bool wasm_runtime_invoke_native_raw(WASMExecEnv* exec_env, void* func_ptr,
             argv_ret[0] = *cast(uint*) argv1;
             break;
         case VALUE_TYPE_F32:
-            *cast(float32*) argv_ret = *cast(float32*) argv1;
+            *cast(float*) argv_ret = *cast(float*) argv1;
             break;
         case VALUE_TYPE_I64:
         case VALUE_TYPE_F64:
@@ -2500,17 +2510,17 @@ static if (BUILD_TARGET_ARM_VFP || BUILD_TARGET_THUMB_VFP) {
     alias GenericFunctionPointer = void function();
     // int64 invokeNative(GenericFunctionPointer f, uint *args, uint n_stacks);
 
-    alias Float64FuncPtr = float64 function(GenericFunctionPointer, uint*, uint);
-    alias Float32FuncPtr = float32 function(GenericFunctionPointer, uint*, uint);
-    alias Int64FuncPtr = int64 function(GenericFunctionPointer, uint*, uint);
-    alias Int32FuncPtr = int32 function(GenericFunctionPointer, uint*, uint);
+    alias Float64FuncPtr = double function(GenericFunctionPointer, uint*, uint);
+    alias Float32FuncPtr = float function(GenericFunctionPointer, uint*, uint);
+    alias Int64FuncPtr = long function(GenericFunctionPointer, uint*, uint);
+    alias IntFuncPtr = int function(GenericFunctionPointer, uint*, uint);
     alias VoidFuncPtr = void function(GenericFunctionPointer, uint*, uint);
 
     protected {
         Float64FuncPtr invokeNative_Float64 = cast(Float64FuncPtr) invokeNative;
         Float32FuncPtr invokeNative_Float32 = cast(Float32FuncPtr) invokeNative;
         Int64FuncPtr invokeNative_Int64 = cast(Int64FuncPtr) invokeNative;
-        Int32FuncPtr invokeNative_Int32 = cast(Int32FuncPtr) invokeNative;
+        IntFuncPtr invokeNative_Int = cast(IntFuncPtr) invokeNative;
         VoidFuncPtr invokeNative_Void = cast(VoidFuncPtr) invokeNative;
     }
 
@@ -2663,9 +2673,9 @@ static if (BUILD_TARGET_ARM_VFP || BUILD_TARGET_THUMB_VFP) {
                 break;
             case VALUE_TYPE_F32:
                 if (n_fps < MAX_REG_FLOATS)
-                    *cast(float32*)&fps[n_fps++] = *cast(float32*) argv_src++;
+                    *cast(float*)&fps[n_fps++] = *cast(float*) argv_src++;
                 else
-                    *cast(float32*)&stacks[n_stacks++] = *cast(float32*) argv_src++;
+                    *cast(float*)&stacks[n_stacks++] = *cast(float*) argv_src++;
                 break;
             case VALUE_TYPE_F64:
                 if (n_fps < MAX_REG_FLOATS - 1) {
@@ -2705,13 +2715,13 @@ static if (BUILD_TARGET_ARM_VFP || BUILD_TARGET_THUMB_VFP) {
         else {
             switch (func_type.types[func_type.param_count]) {
             case VALUE_TYPE_I32:
-                argv_ret[0] = cast(uint) invokeNative_Int32(func_ptr, argv1, n_stacks);
+                argv_ret[0] = cast(uint) invokeNative_Int(func_ptr, argv1, n_stacks);
                 break;
             case VALUE_TYPE_I64:
                 PUT_I64_TO_ADDR(argv_ret, invokeNative_Int64(func_ptr, argv1, n_stacks));
                 break;
             case VALUE_TYPE_F32:
-                *cast(float32*) argv_ret = invokeNative_Float32(func_ptr, argv1, n_stacks);
+                *cast(float*) argv_ret = invokeNative_Float(func_ptr, argv1, n_stacks);
                 break;
             case VALUE_TYPE_F64:
                 PUT_F64_TO_ADDR(argv_ret, invokeNative_Float64(func_ptr, argv1, n_stacks));
@@ -2741,12 +2751,12 @@ static if (BUILD_TARGET_X86_32 || BUILD_TARGET_ARM || BUILD_TARGET_THUMB
     alias Float64FuncPtr = float64 function(GenericFunctionPointer f, uint*, uint);
     alias Float32FuncPtr = float32 function(GenericFunctionPointer f, uint*, uint);
     alias Int64FuncPtr = int64 function(GenericFunctionPointer f, uint*, uint);
-    alias Int32FuncPtr = int32 function(GenericFunctionPointer f, uint*, uint);
+    alias IntFuncPtr = int function(GenericFunctionPointer f, uint*, uint);
     alias VoidFuncPtr = void function(GenericFunctionPointer f, uint*, uint);
 
     protected {
         Int64FuncPtr invokeNative_Int64 = cast(Int64FuncPtr) invokeNative;
-        Int32FuncPtr invokeNative_Int32 = cast(Int32FuncPtr) invokeNative;
+        IntFuncPtr invokeNative_Int = cast(IntFuncPtr) invokeNative;
         Float64FuncPtr invokeNative_Float64 = cast(Float64FuncPtr) invokeNative;
         Float32FuncPtr invokeNative_Float32 = cast(Float32FuncPtr) invokeNative;
         VoidFuncPtr invokeNative_Void = cast(VoidFuncPtr) invokeNative;
@@ -2849,13 +2859,13 @@ static if (BUILD_TARGET_X86_32 || BUILD_TARGET_ARM || BUILD_TARGET_THUMB
             else {
                 switch (func_type.types[func_type.param_count]) {
                 case VALUE_TYPE_I32:
-                    argv_ret[0] = cast(uint) invokeNative_Int32(func_ptr, argv1, argc1);
+                    argv_ret[0] = cast(uint) invokeNative_Int(func_ptr, argv1, argc1);
                     break;
                 case VALUE_TYPE_I64:
                     PUT_I64_TO_ADDR(argv_ret, invokeNative_Int64(func_ptr, argv1, argc1));
                     break;
                 case VALUE_TYPE_F32:
-                    *cast(float32*) argv_ret = invokeNative_Float32(func_ptr, argv1, argc1);
+                    *cast(float*) argv_ret = invokeNative_Float32(func_ptr, argv1, argc1);
                     break;
                 case VALUE_TYPE_F64:
                     PUT_F64_TO_ADDR(argv_ret, invokeNative_Float64(func_ptr, argv1, argc1));
@@ -2888,14 +2898,14 @@ static if (BUILD_TARGET_X86_32 || BUILD_TARGET_ARM || BUILD_TARGET_THUMB
         alias Float64FuncPtr = float64 function(GenericFunctionPointer, ulong*, ulong);
         alias Float32FuncPtr = float32 function(GenericFunctionPointer, ulong*, ulong);
         alias Int64FuncPtr = int64 function(GenericFunctionPointer, ulong*, ulong);
-        alias Int32FuncPtr = int32 function(GenericFunctionPointer, ulong*, ulong);
+        alias IntFuncPtr = int function(GenericFunctionPointer, ulong*, ulong);
         alias VoidFuncPtr = void function(GenericFunctionPointer, ulong*, ulong);
 
         protected {
             Float64FuncPtr invokeNative_Float64 = cast(Float64FuncPtr) cast(uintptr_t) invokeNative;
             Float32FuncPtr invokeNative_Float32 = cast(Float32FuncPtr) cast(uintptr_t) invokeNative;
             Int64FuncPtr invokeNative_Int64 = cast(Int64FuncPtr) cast(uintptr_t) invokeNative;
-            Int32FuncPtr invokeNative_Int32 = cast(Int32FuncPtr) cast(uintptr_t) invokeNative;
+            IntFuncPtr invokeNative_Int = cast(IntFuncPtr) cast(uintptr_t) invokeNative;
             VoidFuncPtr invokeNative_Void = cast(VoidFuncPtr) cast(uintptr_t) invokeNative;
         }
 
@@ -2996,10 +3006,10 @@ static if (BUILD_TARGET_X86_32 || BUILD_TARGET_ARM || BUILD_TARGET_THUMB
                     break;
                 case VALUE_TYPE_F32:
                     if (n_fps < MAX_REG_FLOATS) {
-                        *cast(float32*)&fps[n_fps++] = *cast(float32*) argv_src++;
+                        *cast(float32*)&fps[n_fps++] = *cast(float*) argv_src++;
                     }
                     else {
-                        *cast(float32*)&stacks[n_stacks++] = *cast(float32*) argv_src++;
+                        *cast(float*)&stacks[n_stacks++] = *cast(float*) argv_src++;
                     }
                     break;
                 case VALUE_TYPE_F64:
@@ -3036,13 +3046,13 @@ static if (BUILD_TARGET_X86_32 || BUILD_TARGET_ARM || BUILD_TARGET_THUMB
                 /* Invoke the native function and get the first result value */
                 switch (func_type.types[func_type.param_count]) {
                 case VALUE_TYPE_I32:
-                    argv_ret[0] = cast(uint) invokeNative_Int32(func_ptr, argv1, n_stacks);
+                    argv_ret[0] = cast(uint) invokeNative_Int(func_ptr, argv1, n_stacks);
                     break;
                 case VALUE_TYPE_I64:
                     PUT_I64_TO_ADDR(argv_ret, invokeNative_Int64(func_ptr, argv1, n_stacks));
                     break;
                 case VALUE_TYPE_F32:
-                    *cast(float32*) argv_ret = invokeNative_Float32(func_ptr, argv1, n_stacks);
+                    *cast(float*) argv_ret = invokeNative_Float32(func_ptr, argv1, n_stacks);
                     break;
                 case VALUE_TYPE_F64:
                     PUT_F64_TO_ADDR(argv_ret, invokeNative_Float64(func_ptr, argv1, n_stacks));

@@ -7,6 +7,7 @@ module tagion.tvm.wamr.wasm;
 import tagion.tvm.wamr.bh_platform;
 import tagion.tvm.wamr.bh_hashmap;
 import tagion.tvm.wamr.bh_assert;
+import tagion.tvm.wamr.bh_list;
 
 // #ifndef _WASM_H_
 // #define _WASM_H_
@@ -80,24 +81,26 @@ enum LABEL_TYPE_FUNCTION = 3;
 // typedef struct WASMFunction WASMFunction;
 // typedef struct WASMGlobal WASMGlobal;
 
+alias uintptr_t = ulong;
+
 union WASMValue {
     int i32;
     uint u32;
     long i64;
     ulong u64;
-    float32 f32;
-    float64 f64;
+    float f32;
+    double f64;
     uintptr_t addr;
 }
 
 struct InitializerExpression {
     /* type of INIT_EXPR_TYPE_XXX */
-    uint8 init_expr_type;
+    ubyte init_expr_type;
     union U {
         int i32;
         long i64;
-        float32 f32;
-        float64 f64;
+        float f32;
+        double f64;
         uint global_index;
     };
     U u;
@@ -109,11 +112,11 @@ struct WASMType {
     ushort param_cell_num;
     ushort ret_cell_num;
     /* types of params and results */
-    uint8[1] types;
+    ubyte[1] types;
 }
 
 struct WASMTable {
-    uint8 elem_type;
+    ubyte elem_type;
     uint flags;
     uint init_size;
     /* specified if (flags & 1), else it is 0x10000 */
@@ -130,7 +133,7 @@ struct WASMMemory {
 struct WASMTableImport {
     char* module_name;
     char* field_name;
-    uint8 elem_type;
+    ubyte elem_type;
     uint flags;
     uint init_size;
     /* specified if (flags & 1), else it is 0x10000 */
@@ -175,7 +178,7 @@ struct WASMFunctionImport {
 struct WASMGlobalImport {
     char *module_name;
     char *field_name;
-    uint8 type;
+    ubyte type;
     bool is_mutable;
     /* global data after linked */
     WASMValue global_data_linked;
@@ -188,7 +191,7 @@ struct WASMGlobalImport {
 }
 
 struct WASMImport {
-    uint8 kind;
+    ubyte kind;
     union U {
         WASMFunctionImport func;
         WASMTableImport table;
@@ -207,7 +210,7 @@ struct WASMFunction {
     /* the type of function */
     WASMType* func_type;
     uint local_count;
-    uint8* local_types;
+    ubyte* local_types;
 
     /* cell num of parameters */
     ushort param_cell_num;
@@ -227,24 +230,24 @@ struct WASMFunction {
        call_indirect */
     bool has_op_func_call;
     uint code_size;
-    uint8* code;
+    ubyte* code;
     version(WASM_ENABLE_FAST_INTERP) {
         uint code_compiled_size;
-        uint8* code_compiled;
-        uint8* consts;
+        ubyte* code_compiled;
+        ubyte* consts;
         uint const_cell_num;
     }
 }
 
 struct WASMGlobal {
-    uint8 type;
+    ubyte type;
     bool is_mutable;
     InitializerExpression init_expr;
 }
 
 struct WASMExport {
     char* name;
-    uint8 kind;
+    ubyte kind;
     uint index;
 }
 
@@ -262,13 +265,13 @@ struct WASMDataSeg {
     version(WASM_ENABLE_BULK_MEMORY) {
         bool is_passive;
     }
-    uint8* data;
+    ubyte* data;
 }
 
 struct BlockAddr {
-    const uint8* start_addr;
-    uint8* else_addr;
-    uint8* end_addr;
+    const ubyte* start_addr;
+    ubyte* else_addr;
+    ubyte* end_addr;
 }
 
 version(WASM_ENABLE_LIBC_WASI) {
@@ -368,7 +371,7 @@ struct BlockType {
      * by a type index of module.
      */
     union U {
-        uint8 value_type;
+        ubyte value_type;
         WASMType* type;
     }
     U u;
@@ -376,25 +379,25 @@ struct BlockType {
 }
 
 struct WASMBranchBlock {
-    uint8 label_type;
+    ubyte label_type;
     uint cell_num;
-    uint8* target_addr;
+    ubyte* target_addr;
     uint* frame_sp;
 }
 
 /* Execution environment, e.g. stack info */
 /**
- * Align an unsigned value on a alignment boundary.
+ * Align an uint value on a alignment boundary.
  *
  * @param v the value to be aligned
  * @param b the alignment boundary (2, 4, 8, ...)
  *
  * @return the aligned value
  */
-protected unsigned
-align_uint (unsigned v, unsigned b)
+protected uint
+align_uint (uint v, uint b)
 {
-    unsigned m = b - 1;
+    uint m = b - 1;
     return (v + m) & ~m;
 }
 
@@ -404,9 +407,9 @@ align_uint (unsigned v, unsigned b)
 protected uint
 wasm_string_hash(const char* str)
 {
-    unsigned h = cast(unsigned)strlen(str);
-    const uint8* p = cast(uint8*)str;
-    const uint8* end = p + h;
+    uint h = cast(uint)strlen(str);
+    const ubyte* p = cast(ubyte*)str;
+    const ubyte* end = p + h;
 
     while (p != end) {
         h = ((h << 5) - h) + *p++;
@@ -428,7 +431,7 @@ wasm_string_equal(const char* s1, const char* s2)
  *
  */
 protected uint
-wasm_value_type_size(uint8 value_type)
+wasm_value_type_size(ubyte value_type)
 {
     switch (value_type) {
         case VALUE_TYPE_I32:
@@ -446,7 +449,7 @@ wasm_value_type_size(uint8 value_type)
 }
 
 protected ushort
-wasm_value_type_cell_num(uint8 value_type)
+wasm_value_type_cell_num(ubyte value_type)
 {
     if (value_type == VALUE_TYPE_VOID) {
         return 0;
@@ -466,7 +469,7 @@ wasm_value_type_cell_num(uint8 value_type)
 }
 
 protected uint
-wasm_get_cell_num(const uint8* types, uint type_count)
+wasm_get_cell_num(const ubyte* types, uint type_count)
 {
     uint cell_num = 0;
     uint i;
@@ -488,7 +491,7 @@ wasm_type_equal(const WASMType* type1, const WASMType* type2)
 
 protected uint
 block_type_get_param_types(BlockType* block_type,
-                           uint8** p_param_types)
+                           ubyte** p_param_types)
 {
     uint param_count = 0;
     if (!block_type.is_value_type) {
@@ -506,7 +509,7 @@ block_type_get_param_types(BlockType* block_type,
 
 protected uint
 block_type_get_result_types(BlockType* block_type,
-                            uint8* *p_result_types)
+                            ubyte* *p_result_types)
 {
     uint result_count = 0;
     if (block_type.is_value_type) {

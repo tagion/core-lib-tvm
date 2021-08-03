@@ -66,7 +66,7 @@ void bh_strcpy_s(void* dest, size_t dlen, void* src) {                          
 enum RSIZE_MAX = 0x7FFFFFFF;
 
 int
-b_memcpy_s(void  s1, uint s1max,
+b_memcpy_s(void* s1, uint s1max,
            const void* s2, uint n)
 {
   char *dest = cast(char*)s1;

@@ -6,6 +6,7 @@ module tagion.tvm.wamr.wasm_exec_env;
 
 import tagion.tvm.wamr.bh_assert;
 import tagion.tvm.wamr.wasm;
+import tagion.tvm.platform.platform;
 
 // #ifndef _WASM_EXEC_ENV_H
 // #define _WASM_EXEC_ENV_H
@@ -20,7 +21,7 @@ import tagion.tvm.wamr.wasm;
 // #endif
 
 // struct WASMModuleInstanceCommon;
-// struct WASMInterpFrame;
+struct WASMInterpFrame;
 
 // version(WASM_ENABLE_THREAD_MGR) {
 // typedef struct WASMCluster WASMCluster;
@@ -54,7 +55,7 @@ struct WASMExecEnv {
     /* The boundary of native stack. When runtime detects that native
        frame may overrun this boundary, it throws stack overflow
        exception. */
-    uint8* native_stack_boundary;
+    ubyte* native_stack_boundary;
 
     version (WASM_ENABLE_THREAD_MGR) {
         /* Used to terminate or suspend the interpreter
@@ -102,17 +103,17 @@ struct WASMExecEnv {
 
     /* The WASM stack of current thread */
     union WASM_STACK {
-        uint64 __make_it_8_byte_aligned_;
+        ulong __make_it_8_byte_aligned_;
 
         struct S {
             /* The top boundary of the stack. */
-            uint8* top_boundary;
+            ubyte* top_boundary;
 
             /* Top cell index which is free. */
-            uint8* top;
+            ubyte* top;
 
             /* The WASM stack. */
-            uint8[1] bottom;
+            ubyte[1] bottom;
         }
 
         S s;
@@ -144,8 +145,8 @@ struct WASMExecEnv {
  * @return the WASM frame if there is enough space in the stack area
  * with a protection area, NULL otherwise
  */
-protected void* wasm_exec_env_alloc_wasm_frame(WASMExecEnv* exec_env, unsigned size) {
-    uint8* addr = exec_env.wasm_stack.s.top;
+protected void* wasm_exec_env_alloc_wasm_frame(WASMExecEnv* exec_env, uint size) {
+    ubyte* addr = exec_env.wasm_stack.s.top;
 
     bh_assert(!(size & 3));
 
@@ -164,8 +165,8 @@ protected void* wasm_exec_env_alloc_wasm_frame(WASMExecEnv* exec_env, unsigned s
 }
 
 protected void wasm_exec_env_free_wasm_frame(WASMExecEnv* exec_env, void* prev_top) {
-    bh_assert(cast(uint8*) prev_top >= exec_env.wasm_stack.s.bottom);
-    exec_env.wasm_stack.s.top = cast(uint8*) prev_top;
+    bh_assert(cast(ubyte*) prev_top >= exec_env.wasm_stack.s.bottom);
+    exec_env.wasm_stack.s.top = cast(ubyte*) prev_top;
 }
 
 /**
@@ -240,7 +241,7 @@ import tagion.tvm.wamr.wasm_runtime_common;
 // #endif
 
 WASMExecEnv* wasm_exec_env_create_internal(WASMModuleInstanceCommon* module_inst, uint stack_size) {
-    uint64 total_size = offsetof(WASMExecEnv, wasm_stack.s.bottom) + cast(uint64) stack_size;
+    ulong total_size = offsetof(WASMExecEnv, wasm_stack.s.bottom) + cast(ulong) stack_size;
     WASMExecEnv* exec_env;
 
     if (total_size >= UINT_MAX || !(exec_env = wasm_runtime_malloc(cast(uint) total_size)))

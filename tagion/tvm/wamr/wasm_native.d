@@ -7,6 +7,7 @@ module tagion.tvm.wamr.wasm_native;
 import tagion.tvm.wamr.bh_common;
 import tagion.tvm.wamr.wasm_export;
 import tagion.tvm.wamr.wasm;
+import tagion.tvm.wamr.lib_export;
 
 // #ifndef _WASM_NATIVE_H
 // #define _WASM_NATIVE_H
@@ -23,7 +24,7 @@ struct NativeSymbolsNode {
     NativeSymbolsNode* next;
     const char* module_name;
     NativeSymbol* native_symbols;
-    uint32 n_native_symbols;
+    uint n_native_symbols;
     bool call_conv_raw;
 }
 
@@ -64,12 +65,12 @@ alias NativeSymbolsList = NativeSymbolsNode*;
 // bool
 // wasm_native_register_natives(const char *module_name,
 //                              NativeSymbol *native_symbols,
-//                              uint32 n_native_symbols);
+//                              uint n_native_symbols);
 
 // bool
 // wasm_native_register_natives_raw(const char *module_name,
 //                                  NativeSymbol *native_symbols,
-//                                  uint32 n_native_symbols);
+//                                  uint n_native_symbols);
 
 // bool
 // wasm_native_init();
@@ -97,21 +98,21 @@ protected {
     NativeSymbolsList g_native_symbols_list_end = null;
 }
 
-// uint32
+// uint
 // get_libc_builtin_export_apis(NativeSymbol **p_libc_builtin_apis);
 
 // #if WASM_ENABLE_SPEC_TEST != 0
-// uint32
+// uint
 // get_spectest_export_apis(NativeSymbol **p_libc_builtin_apis);
 // #endif
 
-// uint32
+// uint
 // get_libc_wasi_export_apis(NativeSymbol **p_libc_wasi_apis);
 
-// uint32
+// uint
 // get_base_lib_export_apis(NativeSymbol **p_base_lib_apis);
 
-// uint32
+// uint
 // get_ext_lib_export_apis(NativeSymbol **p_ext_lib_apis);
 
 // #if WASM_ENABLE_LIB_PTHREAD != 0
@@ -121,7 +122,7 @@ protected {
 // void
 // lib_pthread_destroy();
 
-// uint32
+// uint
 // get_lib_pthread_export_apis(NativeSymbol **p_lib_pthread_apis);
 // #endif
 
@@ -129,7 +130,7 @@ protected bool check_symbol_signature(const WASMType* type, const char* signatur
     const char* p = signature, p_end;
     char[] sig_map = ['F', 'f', 'I', 'i'];
     char sig;
-    uint32 i = 0;
+    uint i = 0;
 
     if (!p || strlen(p) < 2) {
         return false;
@@ -140,7 +141,7 @@ protected bool check_symbol_signature(const WASMType* type, const char* signatur
         return false;
     }
 
-    if (cast(uint32)(p_end - p) < cast(uint32)(type.param_count + 1)) {
+    if (cast(uint)(p_end - p) < cast(uint)(type.param_count + 1)) {
         /* signatures of parameters, and ')' */
         return false;
     }
@@ -186,8 +187,8 @@ protected bool check_symbol_signature(const WASMType* type, const char* signatur
     return true;
 }
 
-static void sort_symbol_ptr(NativeSymbol* native_symbols, uint32 n_native_symbols) {
-    uint32 i, j;
+static void sort_symbol_ptr(NativeSymbol* native_symbols, uint n_native_symbols) {
+    uint i, j;
     NativeSymbol temp;
 
     for (i = 0; i < n_native_symbols - 1; i++) {
@@ -201,7 +202,7 @@ static void sort_symbol_ptr(NativeSymbol* native_symbols, uint32 n_native_symbol
     }
 }
 
-static void* lookup_symbol(NativeSymbol* native_symbols, uint32 n_native_symbols,
+static void* lookup_symbol(NativeSymbol* native_symbols, uint n_native_symbols,
         const char* symbol, const char** p_signature, void** p_attachment) {
     int low = 0, mid, ret;
     int high = n_native_symbols - 1;
@@ -272,10 +273,10 @@ void* wasm_native_resolve_symbol(const char* module_name, const char* field_name
 }
 
 static bool register_natives(const char* module_name,
-        NativeSymbol* native_symbols, uint32 n_native_symbols, bool call_conv_raw) {
+        NativeSymbol* native_symbols, uint n_native_symbols, bool call_conv_raw) {
     NativeSymbolsNode* node;
 
-    if (!(node = wasm_runtime_malloc(sizeof(NativeSymbolsNode))))
+    if (!(node = wasm_runtime_malloc(NativeSymbolsNode.sizeof)))
         return false;
 
     node.module_name = module_name;
@@ -297,18 +298,18 @@ static bool register_natives(const char* module_name,
 }
 
 bool wasm_native_register_natives(const char* module_name,
-        NativeSymbol* native_symbols, uint32 n_native_symbols) {
+        NativeSymbol* native_symbols, uint n_native_symbols) {
     return register_natives(module_name, native_symbols, n_native_symbols, false);
 }
 
 bool wasm_native_register_natives_raw(const char* module_name,
-        NativeSymbol* native_symbols, uint32 n_native_symbols) {
+        NativeSymbol* native_symbols, uint n_native_symbols) {
     return register_natives(module_name, native_symbols, n_native_symbols, true);
 }
 
 bool wasm_native_init() {
     NativeSymbol* native_symbols;
-    uint32 n_native_symbols;
+    uint n_native_symbols;
 
     version (WASM_ENABLE_LIBC_BUILTIN) {
         n_native_symbols = get_libc_builtin_export_apis(&native_symbols);

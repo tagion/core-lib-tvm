@@ -5,6 +5,8 @@
 module tagion.tvm.wamr.bh_assert;
 
 import tagion.tvm.wamr.bh_platform;
+@nogc:
+nothrow:
 // #ifndef _BH_ASSERT_H
 // #define _BH_ASSERT_H
 
@@ -14,15 +16,19 @@ import tagion.tvm.wamr.bh_platform;
 // extern "C" {
 // #endif
 
-// #if BH_DEBUG != 0
-//     debig
-// void bh_assert_internal(int v, const char *file_name, int line_number,
-//                         const char *expr_string);
-// #define bh_assert(expr) bh_assert_internal((int)(uintptr_t)(expr), \
-//                                             __FILE__, __LINE__, #expr)
-// #else
-// #define bh_assert(expr) (void)0
-// #endif /* end of BH_DEBUG */
+version(BH_DEBUG) {
+    void bh_assert(const bool expr,
+        const char* file_name=__FILE__.ptr,
+        const int line = __LINE__.ptr) {
+
+        bh_assert_internal(cast(int)(expr), file_name, line, null);
+    }
+}
+else {
+    void bh_assert(const bool) {
+        // empty
+    }
+}
 
 // #ifdef __cplusplus
 // }
