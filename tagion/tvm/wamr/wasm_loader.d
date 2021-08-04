@@ -4939,16 +4939,16 @@ enum CHECK_MEMORY = q{
 };
 
 static bool
-check_memory_access_align(uint8 opcode, uint32 align,
+check_memory_access_align(uint8 opcode, uint32 _align,
                           char *error_buf, uint32 error_buf_size)
 {
-    uint8 mem_access_aligns[] = {
+    uint8[] mem_access_aligns = [
        2, 3, 2, 3, 0, 0, 1, 1, 0, 0, 1, 1, 2, 2, /* loads */
        2, 3, 2, 3, 0, 1, 0, 1, 2                 /* stores */
-    };
+    ];
     bh_assert(opcode >= WASM_OP_I32_LOAD
               && opcode <= WASM_OP_I64_STORE32);
-    if (align > mem_access_aligns[opcode - WASM_OP_I32_LOAD]) {
+    if (_align > mem_access_aligns[opcode - WASM_OP_I32_LOAD]) {
         set_error_buf(error_buf, error_buf_size,
                       "alignment must not be larger than natural");
         return false;
@@ -4970,16 +4970,16 @@ static bool
 wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
                      char *error_buf, uint32 error_buf_size)
 {
-    BranchBlock *target_block, *cur_block;
+    BranchBlock *target_block, cur_block;
     BlockType *target_block_type;
-    uint8 *types = NULL, *frame_ref;
-    uint32 arity = 0;
+    uint8 *types, frame_ref;
+    uint32 arity;
     int32 i, available_stack_cell;
     uint16 cell_num;
 
     if (loader_ctx.csp_num < depth + 1) {
       set_error_buf(error_buf, error_buf_size,
-                    "WASM module load failed: unknown label, "
+                    "WASM module load failed: unknown label, " ~
                     "unexpected end of section or function");
       return false;
     }
@@ -5001,28 +5001,28 @@ wasm_loader_check_br(WASMLoaderContext *loader_ctx, uint32 depth,
      * and then re-push the values to make the stack top values
      * match block type. */
     if (cur_block.is_stack_polymorphic) {
-        for (i = (int32)arity -1; i >= 0; i--) {
+        for (i = cast(int32)arity -1; i >= 0; i--) {
             version(WASM_ENABLE_FAST_INTERP) {
                 mixin(POP_OFFSET_TYPE!(types[i])());
             }
             mixin(POP_TYPE!(types[i])());
         }
-        for (i = 0; i < (int32)arity; i++) {
-#if WASM_ENABLE_FAST_INTERP != 0
+        for (i = 0; i < cast(int32)arity; i++) {
+            version(WASM_ENABLE_FAST_INTERP) {
             bool disable_emit = true;
             int16 operand_offset = 0;
             PUSH_OFFSET_TYPE(types[i]);
-#endif
+            }
             mixin(PUSH_TYPE!(types[i])());
         }
         return true;
     }
 
-    available_stack_cell = (int32)
+    available_stack_cell = cast(int32)
                            (loader_ctx.stack_cell_num - cur_block.stack_cell_num);
 
     /* Check stack top values match target block type */
-    for (i = (int32)arity -1; i >= 0; i--) {
+    for (i = cast(int32)arity -1; i >= 0; i--) {
         if (!check_stack_top_values(frame_ref, available_stack_cell,
                                     types[i],
                                     error_buf, error_buf_size))
@@ -5043,7 +5043,7 @@ check_branch_block(WASMLoaderContext *loader_ctx,
                    uint8 **p_buf, uint8 *buf_end,
                    char *error_buf, uint32 error_buf_size)
 {
-    uint8 *p = *p_buf, *p_end = buf_end;
+    uint8 *p = *p_buf, p_end = buf_end;
     BranchBlock *frame_csp_tmp;
     uint32 depth;
 
@@ -5070,7 +5070,7 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
     int32 available_stack_cell, return_cell_num, i;
     uint8 *frame_ref = NULL;
 
-    available_stack_cell = (int32)
+    available_stack_cell = cast(int32)
                            (loader_ctx.stack_cell_num
                             - block.stack_cell_num);
 
@@ -5082,27 +5082,27 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
      * and then re-push the values to make the stack top values
      * match block type. */
     if (block.is_stack_polymorphic) {
-        for (i = (int32)return_count -1; i >= 0; i--) {
-#if WASM_ENABLE_FAST_INTERP != 0
-            mixin(POP_OFFSET_TYPE!(return_types[i]);
-#endif
-                mixin(POP_TYPE!(return_types[i])());
+        for (i = cast(int32)return_count -1; i >= 0; i--) {
+            version(WASM_ENABLE_FAST_INTERP) {
+                mixin(POP_OFFSET_TYPE!(return_types[i])());
+            }
+            mixin(POP_TYPE!(return_types[i])());
         }
 
         /* Check stack is empty */
         if (loader_ctx.stack_cell_num != block.stack_cell_num) {
             set_error_buf(error_buf, error_buf_size,
-                          "WASM module load failed: "
+                          "WASM module load failed: " ~
                           "type mismatch: stack size does not match block type");
             goto fail;
         }
 
-        for (i = 0; i < (int32)return_count; i++) {
-#if WASM_ENABLE_FAST_INTERP != 0
+        for (i = 0; i < cast(int32)return_count; i++) {
+            version(WASM_ENABLE_FAST_INTERP) {
             bool disable_emit = true;
             int16 operand_offset = 0;
             PUSH_OFFSET_TYPE(return_types[i]);
-#endif
+            }
             mixin(PUSH_TYPE!(return_types[i])());
         }
         return true;
@@ -5111,14 +5111,14 @@ check_block_stack(WASMLoaderContext *loader_ctx, BranchBlock *block,
     /* Check stack cell num equals return cell num */
     if (available_stack_cell != return_cell_num) {
         set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: "
+                      "WASM module load failed: " ~
                       "type mismatch: stack size does not match block type");
         goto fail;
     }
 
     /* Check stack values match return types */
     frame_ref = loader_ctx.frame_ref;
-    for (i = (int32)return_count -1; i >= 0; i--) {
+    for (i = cast(int32)return_count -1; i >= 0; i--) {
         if (!check_stack_top_values(frame_ref, available_stack_cell,
                                     return_types[i],
                                     error_buf, error_buf_size))
@@ -5133,7 +5133,7 @@ fail:
     return false;
 }
 
-#if WASM_ENABLE_FAST_INTERP != 0
+version(WASM_ENABLE_FAST_INTERP) {
 /* Copy parameters to dynamic space.
  * 1) POP original parameter out;
  * 2) Push and copy original values to dynamic space.
@@ -5161,7 +5161,7 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
     bool disable_emit = false;
     int16 operand_offset = 0;
 
-    uint64 size = (uint64)param_count * (sizeof(*cells)
+    uint64 size = cast(uint64)param_count * (sizeof(*cells)
                                          + sizeof(*src_offsets));
 
     /* For if block, we also need copy the condition operand offset. */
@@ -5173,14 +5173,14 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
         return false;
 
     cells = emit_data;
-    src_offsets = (int16 *)(cells + param_count);
+    src_offsets = cast(int16 *)(cells + param_count);
 
     if (is_if_block)
         condition_offset = *loader_ctx.frame_offset;
 
     /* POP original parameter out */
     for (i = 0; i < param_count; i++) {
-        mixin(POP_OFFSET_TYPE!(wasm_type.types[param_count - i - 1]);
+        mixin(POP_OFFSET_TYPE!(wasm_type.types[param_count - i - 1])());
         wasm_loader_emit_backspace(loader_ctx, sizeof(int16));
     }
     frame_offset = loader_ctx.frame_offset;
@@ -5228,58 +5228,66 @@ copy_params_to_dynamic_space(WASMLoaderContext *loader_ctx, bool is_if_block,
 fail:
     return false;
 }
-#endif
+}
 
 /* reset the stack to the state of before entering the last block */
-#if WASM_ENABLE_FAST_INTERP != 0
-#define RESET_STACK() do {                                                   \
-    loader_ctx.stack_cell_num =                                             \
-               (loader_ctx.frame_csp - 1).stack_cell_num;                  \
-    loader_ctx.frame_ref =                                                  \
-               loader_ctx.frame_ref_bottom + loader_ctx.stack_cell_num;    \
-    loader_ctx.frame_offset =                                               \
-               loader_ctx.frame_offset_bottom + loader_ctx.stack_cell_num; \
-} while (0)
-#else
-#define RESET_STACK() do {                                                \
-    loader_ctx.stack_cell_num =                                          \
-               (loader_ctx.frame_csp - 1).stack_cell_num;               \
-    loader_ctx.frame_ref =                                               \
-               loader_ctx.frame_ref_bottom + loader_ctx.stack_cell_num; \
-} while (0)
-#endif
+version(WASM_ENABLE_FAST_INTERP) {
+string RESET_STACK = q{
+    loader_ctx.stack_cell_num =
+               (loader_ctx.frame_csp - 1).stack_cell_num;
+    loader_ctx.frame_ref =
+               loader_ctx.frame_ref_bottom + loader_ctx.stack_cell_num;
+    loader_ctx.frame_offset =
+               loader_ctx.frame_offset_bottom + loader_ctx.stack_cell_num;
+};
+}
+else {
+enum RESET_STACK = q{
+    loader_ctx.stack_cell_num =
+               (loader_ctx.frame_csp - 1).stack_cell_num;
+    loader_ctx.frame_ref =
+               loader_ctx.frame_ref_bottom + loader_ctx.stack_cell_num;
+};
+}
 
 /* set current block's stack polymorphic state */
-#define SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(flag) do {                  \
-    BranchBlock *cur_block = loader_ctx.frame_csp - 1;                   \
-    cur_block.is_stack_polymorphic = flag;                               \
-} while (0)
+string SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(bool flag)() {
+    return format!q{
+        BranchBlock *cur_block = loader_ctx.frame_csp - 1;
+        cur_block.is_stack_polymorphic = %1$s;
+    }(flag);
+}
 
-#define BLOCK_HAS_PARAM(block_type) \
-    (!block_type.is_value_type && block_type.u.type.param_count > 0)
+bool BLOCK_HAS_PARAM(alias block_type)() {
+    enum code = format!q{
+    (return !%1$s.is_value_type && %1$s.u.type.param_count > 0)
+}(block_type.stringof);
+    mixin(code);
+}
 
 static bool
-wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
+wasm_loader_prepare_bytecode(WASMModule *wasm_module, WASMFunction *func,
                              BlockAddr *block_addr_cache,
                              char *error_buf, uint32 error_buf_size)
 {
-    uint8 *p = func.code, *p_end = func.code + func.code_size, *p_org;
+    uint8 *p = func.code, p_end = func.code + func.code_size, p_org;
     uint32 param_count, local_count, global_count;
-    uint8 *param_types, *local_types, local_type, global_type;
+    uint8 *param_types, local_types;
+    uint8 local_type, global_type;
     BlockType func_type;
     uint16 *local_offsets, local_offset;
-    uint32 count, i, local_idx, global_idx, u32, align, mem_offset;
+    uint32 count, i, local_idx, global_idx, u32, _align, mem_offset;
     int32 i32, i32_const = 0;
     int64 i64;
     uint8 opcode, u8;
     bool return_value = false;
     WASMLoaderContext *loader_ctx;
     BranchBlock *frame_csp_tmp;
-#if WASM_ENABLE_BULK_MEMORY != 0
+    version(WASM_ENABLE_BULK_MEMORY) {
     uint32 segment_index;
-#endif
-#if WASM_ENABLE_FAST_INTERP != 0
-    uint8 *func_const_end, *func_const;
+    }
+    version(WASM_ENABLE_FAST_INTERP) {
+    uint8 *func_const_end, func_const;
     int16 operand_offset;
     uint8 last_op = 0;
     bool disable_emit, preserve_local = false;
@@ -5290,7 +5298,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
         func.param_cell_num,
         func.local_cell_num,
         func.ret_cell_num);
-#endif
+    }
 
     global_count = wasm_module.import_global_count + wasm_module.global_count;
 
@@ -5306,45 +5314,45 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 
     if (!(loader_ctx = wasm_loader_ctx_init(func))) {
         set_error_buf(error_buf, error_buf_size,
-                      "WASM loader prepare bytecode failed: "
+                      "WASM loader prepare bytecode failed: " ~
                       "allocate memory failed");
         goto fail;
     }
 
-#if WASM_ENABLE_FAST_INTERP != 0
+    version(WASM_ENABLE_FAST_INTERP) {
 re_scan:
     if (loader_ctx.code_compiled_size > 0) {
         if (!wasm_loader_ctx_reinit(loader_ctx)) {
             set_error_buf(error_buf, error_buf_size,
-                          "WASM loader prepare bytecode failed: "
+                          "WASM loader prepare bytecode failed: " ~
                           "allocate memory failed");
             goto fail;
         }
         p = func.code;
         func.code_compiled = loader_ctx.p_code_compiled;
     }
-#endif
+    }
 
     mixin(PUSH_CSP!(LABEL_TYPE_FUNCTION, func_type, p)());
 
     while (p < p_end) {
         opcode = *p++;
-#if WASM_ENABLE_FAST_INTERP != 0
+        version(WASM_ENABLE_FAST_INTERP) {
         p_org = p;
         disable_emit = false;
         mixin(emit_label!(opcode)());
-#endif
+        }
 
         switch (opcode) {
             case WASM_OP_UNREACHABLE:
                 RESET_STACK();
-                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
+                mixin(SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE!(true)());
                 break;
 
             case WASM_OP_NOP:
-#if WASM_ENABLE_FAST_INTERP != 0
-                minin(skip_label);
-#endif
+                version(WASM_ENABLE_FAST_INTERP) {
+                mixin(skip_label);
+                }
                 break;
 
             case WASM_OP_IF:
@@ -5372,25 +5380,25 @@ handle_op_block_and_loop:
                     read_leb_uint32(p, p_end, type_index);
                     if (type_index >= wasm_module.type_count) {
                         set_error_buf(error_buf, error_buf_size,
-                                      "WASM loader prepare bytecode failed: "
+                                      "WASM loader prepare bytecode failed: " ~
                                       "unknown type");
                         goto fail;
                     }
                     block_type.is_value_type = false;
                     block_type.u.type = wasm_module.types[type_index];
-#if WASM_ENABLE_FAST_INTERP == 0 \
-    && WASM_ENABLE_WAMR_COMPILER == 0 \
-    && WASM_ENABLE_JIT == 0
+                    static if  (!WASM_ENABLE_FAST_INTERP
+                        && !WASM_ENABLE_WAMR_COMPILER
+                        && !WASM_ENABLE_JIT) {
                     /* If block use type index as block type, change the opcode
                      * to new extended opcode so that interpreter can resolve the
                      * block quickly.
                      */
                     *(p - 2) = EXT_OP_BLOCK + (opcode - WASM_OP_BLOCK);
-#endif
+                    }
                 }
 
                 /* Pop block parameters from stack */
-                if (BLOCK_HAS_PARAM(block_type)) {
+                if (BLOCK_HAS_PARAM!(block_type)()) {
                     WASMType *wasm_type = block_type.u.type;
                     for (i = 0; i < block_type.u.type.param_count; i++)
                         mixin(POP_TYPE!(wasm_type.types[wasm_type.param_count - i - 1])());
@@ -5399,17 +5407,17 @@ handle_op_block_and_loop:
                 mixin(PUSH_CSP!(LABEL_TYPE_BLOCK + (opcode - WASM_OP_BLOCK), block_type, p)());
 
                 /* Pass parameters to block */
-                if (BLOCK_HAS_PARAM(block_type)) {
+                if (BLOCK_HAS_PARAM!(block_type)()) {
                     for (i = 0; i < block_type.u.type.param_count; i++)
                         mixin(PUSH_TYPE!(block_type.u.type.types[i])());
                 }
 
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 if (opcode == WASM_OP_BLOCK) {
                     mixin(skip_label);
                 } else if (opcode == WASM_OP_LOOP) {
                     mixin(skip_label);
-                    if (BLOCK_HAS_PARAM(block_type)) {
+                    if (BLOCK_HAS_PARAM!(block_type)()) {
                         /* Make sure params are in dynamic space */
                         if (!copy_params_to_dynamic_space(loader_ctx,
                                                           false,
@@ -5437,7 +5445,7 @@ handle_op_block_and_loop:
                      * recover them before entering else branch.
                      *
                      */
-                    if (BLOCK_HAS_PARAM(block_type)) {
+                    if (BLOCK_HAS_PARAM!(block_type)()) {
                         BranchBlock *block = loader_ctx.frame_csp - 1;
                         uint64 size;
 
@@ -5455,12 +5463,12 @@ handle_op_block_and_loop:
                         /* Emit the if instruction */
                         mixin(emit_label!(opcode)());
                         /* Emit the new condition operand offset */
-                        mixin(POP_OFFSET_TYPE!(VALUE_TYPE_I32);
+                        mixin(POP_OFFSET_TYPE!(VALUE_TYPE_I32)());
 
                         /* Save top param_count values of frame_offset stack, so that
                          * we can recover it before executing else branch */
                         size = sizeof(int16) *
-                               (uint64)block_type.u.type.param_cell_num;
+                               cast(uint64)block_type.u.type.param_cell_num;
                         if (!(block.param_frame_offsets =
                                     loader_malloc(size, error_buf, error_buf_size)))
                             goto fail;
@@ -5473,7 +5481,7 @@ handle_op_block_and_loop:
                     mixin(emit_empty_label_addr_and_frame_ip!(PATCH_ELSE)());
                     mixin(emit_empty_label_addr_and_frame_ip!(PATCH_END)());
                 }
-#endif
+                }
                 break;
             }
 
@@ -5484,7 +5492,7 @@ handle_op_block_and_loop:
                 if (loader_ctx.csp_num < 2
                     || (loader_ctx.frame_csp - 1).label_type != LABEL_TYPE_IF) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "opcode else found without matched opcode if");
                     goto fail;
                 }
@@ -5496,25 +5504,25 @@ handle_op_block_and_loop:
 
                 (loader_ctx.frame_csp - 1).else_addr = p - 1;
 
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 /* if the result of if branch is in local or const area, add a copy op */
                 mixin(RESERVE_BLOCK_RET);
 
                 emit_empty_label_addr_and_frame_ip(PATCH_END);
                 apply_label_patch(loader_ctx, 1, PATCH_ELSE);
-#endif
+                }
                 RESET_STACK();
-                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(false);
+                mixin(SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE!(false)());
 
                 /* Pass parameters to if-false branch */
-                if (BLOCK_HAS_PARAM(block_type)) {
+                if (BLOCK_HAS_PARAM!(block_type)()) {
                     for (i = 0; i < block_type.u.type.param_count; i++)
                         mixin(PUSH_TYPE!(block_type.u.type.types[i])());
                 }
 
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 /* Recover top param_count values of frame_offset stack */
-                if (BLOCK_HAS_PARAM((block_type))) {
+                if (BLOCK_HAS_PARAM!(block_type)()) {
                     uint32 size;
                     BranchBlock *block = loader_ctx.frame_csp - 1;
                     size = sizeof(int16) *
@@ -5523,7 +5531,7 @@ handle_op_block_and_loop:
                                 block.param_frame_offsets, size);
                     loader_ctx.frame_offset += (size/sizeof(int16));
                 }
-#endif
+                }
 
                 break;
             }
@@ -5541,7 +5549,7 @@ handle_op_block_and_loop:
                 if (cur_block.label_type == LABEL_TYPE_IF
                     && !cur_block.else_addr) {
                     uint32 param_count = 0, ret_count = 0;
-                    uint8 *param_types = NULL, *ret_types = NULL;
+                    uint8 *param_types, ret_types;
                     BlockType *block_type = &cur_block.block_type;
                     if (block_type.is_value_type) {
                         if (block_type.u.value_type != VALUE_TYPE_VOID) {
@@ -5558,7 +5566,7 @@ handle_op_block_and_loop:
                     if (param_count != ret_count
                         || (param_count && memcmp(param_types, ret_types, param_count))) {
                         set_error_buf(error_buf, error_buf_size,
-                                      "WASM module load failed: "
+                                      "WASM module load failed: " ~
                                       "type mismatch: else branch missing");
                         goto fail;
                     }
@@ -5566,7 +5574,7 @@ handle_op_block_and_loop:
 
                 mixin(POP_CSP);
 
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 mixin(skip_label);
                 /* copy the result to the block return address */
                 mixin(RESERVE_BLOCK_RET);
@@ -5578,14 +5586,14 @@ handle_op_block_and_loop:
                     uint8 ret_type;
 
                     mixin(emit_label!(WASM_OP_RETURN)());
-                    for (idx = (int32)func.func_type.result_count - 1;
+                    for (idx = cast(int32)func.func_type.result_count - 1;
                          idx >= 0; idx--) {
                         ret_type = *(func.func_type.types
                                      + func.func_type.param_count + idx);
-                        mixin(POP_OFFSET_TYPE!(ret_type);
+                        mixin(POP_OFFSET_TYPE!(ret_type)());
                     }
                 }
-#endif
+                }
                 if (loader_ctx.csp_num > 0) {
                     loader_ctx.frame_csp.end_addr = p - 1;
                 }
@@ -5597,7 +5605,7 @@ handle_op_block_and_loop:
                     continue;
                 }
 
-                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(false);
+                mixin(SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE!(false)());
                 break;
             }
 
@@ -5608,7 +5616,7 @@ handle_op_block_and_loop:
                     goto fail;
 
                 RESET_STACK();
-                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
+                mixin(SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE!(true)());
                 break;
             }
 
@@ -5629,9 +5637,9 @@ handle_op_block_and_loop:
                 uint32 ret_count = 0;
 
                 read_leb_uint32(p, p_end, count);
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 mixin(emit_uint32!(loader_ctx, count)());
-#endif
+                }
                 mixin(POP_I32);
 
                 /* TODO: check the const */
@@ -5661,8 +5669,8 @@ handle_op_block_and_loop:
                             || (ret_count
                                 && 0 != memcmp(ret_types, tmp_ret_types, ret_count))) {
                             set_error_buf(error_buf, error_buf_size,
-                                          "WASM loader prepare bytecode failed: "
-                                          "type mismatch: br_table targets must "
+                                          "WASM loader prepare bytecode failed: " ~
+                                          "type mismatch: br_table targets must " ~
                                           "all use same result type");
                             goto fail;
                         }
@@ -5670,7 +5678,7 @@ handle_op_block_and_loop:
                 }
 
                 RESET_STACK();
-                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
+                mixin(SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE!(true)());
                 break;
             }
 
@@ -5678,18 +5686,18 @@ handle_op_block_and_loop:
             {
                 int32 idx;
                 uint8 ret_type;
-                for (idx = (int32)func.func_type.result_count - 1; idx >= 0; idx--) {
+                for (idx = cast(int32)func.func_type.result_count - 1; idx >= 0; idx--) {
                     ret_type = *(func.func_type.types
                                  + func.func_type.param_count + idx);
                     mixin(POP_TYPE!(ret_type)());
-#if WASM_ENABLE_FAST_INTERP != 0
+                    version(WASM_ENABLE_FAST_INTERP) {
                     // emit the offset after return opcode
-                    mixin(POP_OFFSET_TYPE!(ret_type);
-#endif
+                    mixin(POP_OFFSET_TYPE!(ret_type)());
+                    }
                 }
 
-                RESET_STACK();
-                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
+                        mixin(RESET_STACK);
+                    mixin(SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE!(true)());
 
                 break;
             }
@@ -5701,42 +5709,42 @@ handle_op_block_and_loop:
                 int32 idx;
 
                 read_leb_uint32(p, p_end, func_idx);
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 // we need to emit func_idx before arguments
                 mixin(emit_uint32!(loader_ctx, func_idx)());
-#endif
+                }
 
                 if (func_idx >= wasm_module.import_function_count + wasm_module.function_count) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "unknown function.");
                     goto fail;
                 }
 
                 if (func_idx < wasm_module.import_function_count)
-                    func_type = wasm_module.import_functions[func_idx].u.function.func_type;
+                    func_type = wasm_module.import_functions[func_idx].u.func.func_type;
                 else
                     func_type =
                         wasm_module.functions[func_idx - wasm_module.import_function_count].func_type;
 
                 if (func_type.param_count > 0) {
-                    for (idx = (int32)(func_type.param_count - 1); idx >= 0; idx--) {
+                    for (idx = cast(int32)(func_type.param_count - 1); idx >= 0; idx--) {
                         mixin(POP_TYPE!(func_type.types[idx])());
-#if WASM_ENABLE_FAST_INTERP != 0
-                        mixin(POP_OFFSET_TYPE!(func_type.types[idx]);
-#endif
+                        version(WASM_ENABLE_FAST_INTERP) {
+                            mixin(POP_OFFSET_TYPE!(func_type.types[idx])());
+                        }
                     }
                 }
 
                 for (i = 0; i < func_type.result_count; i++) {
                     mixin(PUSH_TYPE!(func_type.types[func_type.param_count + i])());
-#if WASM_ENABLE_FAST_INTERP != 0
+                    version(WASM_ENABLE_FAST_INTERP) {
                     /* Here we emit each return value's dynamic_offset. But in fact
                      * these offsets are continuous, so interpreter only need to get
                      * the first return value's offset.
                      */
                     PUSH_OFFSET_TYPE(func_type.types[func_type.param_count + i]);
-#endif
+                    }
                 }
 
                 func.has_op_func_call = true;
@@ -5752,21 +5760,21 @@ handle_op_block_and_loop:
                 if (wasm_module.table_count == 0
                     && wasm_module.import_table_count == 0) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "call indirect with unknown table");
                     goto fail;
                 }
 
                 read_leb_uint32(p, p_end, type_idx);
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 // we need to emit func_idx before arguments
                 mixin(emit_uint32!(loader_ctx, type_idx)());
-#endif
+                }
 
                 /* reserved byte 0x00 */
                 if (*p++ != 0x00) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "zero flag expected");
                     goto fail;
                 }
@@ -5775,7 +5783,7 @@ handle_op_block_and_loop:
 
                 if (type_idx >= wasm_module.type_count) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "unknown type");
                     goto fail;
                 }
@@ -5783,19 +5791,19 @@ handle_op_block_and_loop:
                 func_type = wasm_module.types[type_idx];
 
                 if (func_type.param_count > 0) {
-                    for (idx = (int32)(func_type.param_count - 1); idx >= 0; idx--) {
+                    for (idx = cast(int32)(func_type.param_count - 1); idx >= 0; idx--) {
                         mixin(POP_TYPE!(func_type.types[idx])());
-#if WASM_ENABLE_FAST_INTERP != 0
-                        mixin(POP_OFFSET_TYPE!(func_type.types[idx]);
-#endif
+                        version(WASM_ENABLE_FAST_INTERP) {
+                            mixin(POP_OFFSET_TYPE!(func_type.types[idx])());
+                            }
                     }
                 }
 
                 for (i = 0; i < func_type.result_count; i++) {
                     mixin(PUSH_TYPE!(func_type.types[func_type.param_count + i])());
-#if WASM_ENABLE_FAST_INTERP != 0
+                    version(WASM_ENABLE_FAST_INTERP) {
                     PUSH_OFFSET_TYPE(func_type.types[func_type.param_count + i]);
-#endif
+                    }
                 }
 
                 func.has_op_func_call = true;
@@ -5806,14 +5814,14 @@ handle_op_block_and_loop:
             case WASM_OP_DROP_64:
             {
                 BranchBlock *cur_block = loader_ctx.frame_csp - 1;
-                int32 available_stack_cell = (int32)
+                int32 available_stack_cell = cast(int32)
                     (loader_ctx.stack_cell_num - cur_block.stack_cell_num);
 
                 if (available_stack_cell <= 0
                     && !cur_block.is_stack_polymorphic) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
-                                  "type mismatch, opcode drop was found "
+                                  "WASM loader prepare bytecode failed: " ~
+                                  "type mismatch, opcode drop was found " ~
                                   "but stack was empty");
                     goto fail;
                 }
@@ -5823,33 +5831,33 @@ handle_op_block_and_loop:
                         || *(loader_ctx.frame_ref - 1) == REF_F32) {
                         loader_ctx.frame_ref--;
                         loader_ctx.stack_cell_num--;
-#if WASM_ENABLE_FAST_INTERP != 0
+                        version(WASM_ENABLE_FAST_INTERP) {
                         mixin(skip_label);
                         loader_ctx.frame_offset--;
                         if (*(loader_ctx.frame_offset) >
                                 loader_ctx.start_dynamic_offset)
                             loader_ctx.dynamic_offset --;
-#endif
+                        }
                     }
                     else {
                         loader_ctx.frame_ref -= 2;
                         loader_ctx.stack_cell_num -= 2;
-#if (WASM_ENABLE_FAST_INTERP == 0) || (WASM_ENABLE_JIT != 0)
+                        static if (!WASM_ENABLE_FAST_INTERP || !WASM_ENABLE_JIT) {
                         *(p - 1) = WASM_OP_DROP_64;
-#endif
-#if WASM_ENABLE_FAST_INTERP != 0
+                        }
+                        version(WASM_ENABLE_FAST_INTERP) {
                         mixin(skip_label);
                         loader_ctx.frame_offset -= 2;
                         if (*(loader_ctx.frame_offset) >
                                 loader_ctx.start_dynamic_offset)
                             loader_ctx.dynamic_offset -= 2;
-#endif
+                        }
                     }
                 }
                 else {
-#if WASM_ENABLE_FAST_INTERP != 0
+                    version(WASM_ENABLE_FAST_INTERP) {
                     mixin(skip_label);
-#endif
+                    }
                 }
                 break;
             }
@@ -5863,14 +5871,14 @@ handle_op_block_and_loop:
 
                 mixin(POP_I32);
 
-                available_stack_cell = (int32)
+                available_stack_cell = cast(int32)
                     (loader_ctx.stack_cell_num - cur_block.stack_cell_num);
 
                 if (available_stack_cell <= 0
                     && !cur_block.is_stack_polymorphic) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
-                                  "type mismatch, opcode select was found "
+                                  "WASM loader prepare bytecode failed: " ~
+                                  "type mismatch, opcode select was found " ~
                                   "but stack was empty");
                     goto fail;
                 }
@@ -5882,41 +5890,42 @@ handle_op_block_and_loop:
                             break;
                         case REF_I64_2:
                         case REF_F64_2:
-#if (WASM_ENABLE_FAST_INTERP == 0) || (WASM_ENABLE_JIT != 0)
+                            static if (!WASM_ENABLE_FAST_INTERP || !WASM_ENABLE_JIT) {
                             *(p - 1) = WASM_OP_SELECT_64;
-#endif
-#if WASM_ENABLE_FAST_INTERP != 0
-                            if (loader_ctx.p_code_compiled) {
-#if WASM_ENABLE_ABS_LABEL_ADDR != 0
-                                *(void**)(loader_ctx.p_code_compiled - 2 - sizeof(void*)) =
-                                    handle_table[WASM_OP_SELECT_64];
-#else
-                                *((int16*)loader_ctx.p_code_compiled - 2) = (int16)
-                                    (handle_table[WASM_OP_SELECT_64] - handle_table[0]);
-#endif
                             }
-#endif
+                            version( WASM_ENABLE_FAST_INTERP) {
+                            if (loader_ctx.p_code_compiled) {
+                                version(WASM_ENABLE_ABS_LABEL_ADDR) {
+                                *cast(void**)(loader_ctx.p_code_compiled - 2 - (void*).sizeof) =
+                                    handle_table[WASM_OP_SELECT_64];
+                                }
+                                else {
+                                *(cast(int16*)loader_ctx.p_code_compiled - 2) = cast(int16)
+                                    (handle_table[WASM_OP_SELECT_64] - handle_table[0]);
+                                }
+                            }
+                            }
                             break;
                     }
 
                     ref_type = *(loader_ctx.frame_ref - 1);
-#if WASM_ENABLE_FAST_INTERP != 0
-                    mixin(POP_OFFSET_TYPE!(ref_type);
-#endif
+                    version(WASM_ENABLE_FAST_INTERP) {
+                        mixin(POP_OFFSET_TYPE!(ref_type)());
+                        }
                         mixin(POP_TYPE!(ref_type)());
-#if WASM_ENABLE_FAST_INTERP != 0
-                    mixin(POP_OFFSET_TYPE!(ref_type);
-#endif
+                        version(WASM_ENABLE_FAST_INTERP) {
+                            mixin(POP_OFFSET_TYPE!(ref_type)());
+                        }
                         mixin(POP_TYPE!(ref_type)());
-#if WASM_ENABLE_FAST_INTERP != 0
+                    version(WASM_ENABLE_FAST_INTERP) {
                     PUSH_OFFSET_TYPE(ref_type);
-#endif
+                    }
                         mixin(PUSH_TYPE!(ref_type)());
                 }
                 else {
-#if WASM_ENABLE_FAST_INTERP != 0
+                    version(WASM_ENABLE_FAST_INTERP) {
                     PUSH_OFFSET_TYPE(VALUE_TYPE_ANY);
-#endif
+                    }
                     mixin(PUSH_TYPE!(VALUE_TYPE_ANY)());
                 }
                 break;
@@ -5928,26 +5937,27 @@ handle_op_block_and_loop:
                 mixin(GET_LOCAL_INDEX_TYPE_AND_OFFSET);
                 mixin(PUSH_TYPE!(local_type)());
 
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 /* Get Local is optimized out */
                 mixin(skip_label);
                 disable_emit = true;
                 operand_offset = local_offset;
                 PUSH_OFFSET_TYPE(local_type);
-#else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+                }
+                else {
+                    static if (!WASM_ENABLE_WAMR_COMPILER && !WASM_ENABLE_JIT) {
                 if (local_offset < 0x80) {
                     *p_org++ = EXT_OP_GET_LOCAL_FAST;
                     if (local_type == VALUE_TYPE_I32
                         || local_type == VALUE_TYPE_F32)
-                        *p_org++ = (uint8)local_offset;
+                        *p_org++ = cast(uint8)local_offset;
                     else
-                        *p_org++ = (uint8)(local_offset | 0x80);
+                        *p_org++ = cast(uint8)(local_offset | 0x80);
                     while (p_org < p)
                         *p_org++ = WASM_OP_NOP;
                 }
-#endif
-#endif
+                    }
+                }
                 break;
             }
 
@@ -5957,7 +5967,7 @@ handle_op_block_and_loop:
                 mixin(GET_LOCAL_INDEX_TYPE_AND_OFFSET);
                 mixin(POP_TYPE!(local_type)());
 
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 if (!(preserve_referenced_local(loader_ctx, opcode, local_offset,
                                                 local_type, &preserve_local,
                                                 error_buf, error_buf_size)))
@@ -5967,13 +5977,13 @@ handle_op_block_and_loop:
                     mixin(skip_label);
                     if ((!preserve_local) && (LAST_OP_OUTPUT_I32(last_op))) {
                         if (loader_ctx.p_code_compiled)
-                            *(int16*)(loader_ctx.p_code_compiled - 2) = local_offset;
+                            *cast(int16*)(loader_ctx.p_code_compiled - 2) = local_offset;
                         loader_ctx.frame_offset --;
                         loader_ctx.dynamic_offset --;
                     }
                     else if ((!preserve_local) && (LAST_OP_OUTPUT_I64(last_op))) {
                         if (loader_ctx.p_code_compiled)
-                            *(int16*)(loader_ctx.p_code_compiled - 2) = local_offset;
+                            *cast(int16*)(loader_ctx.p_code_compiled - 2) = local_offset;
                         loader_ctx.frame_offset -= 2;
                         loader_ctx.dynamic_offset -= 2;
                     }
@@ -5987,28 +5997,29 @@ handle_op_block_and_loop:
                             mixin(emit_label!(EXT_OP_SET_LOCAL_FAST_I64)());
                             emit_byte(loader_ctx, local_offset);
                         }
-                        mixin(POP_OFFSET_TYPE!(local_type);
+                        mixin(POP_OFFSET_TYPE!(local_type)());
                     }
                 }
                 else {   /* local index larger than 255, reserve leb */
                     p_org ++;
                     mixin(emit_leb);
-                    mixin(POP_OFFSET_TYPE!(local_type);
+                    mixin(POP_OFFSET_TYPE!(local_type)());
                 }
-#else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+                }
+                else {
+                    static if (!WASM_ENABLE_WAMR_COMPILER && !WASM_ENABLE_JIT) {
                 if (local_offset < 0x80) {
                     *p_org++ = EXT_OP_SET_LOCAL_FAST;
                     if (local_type == VALUE_TYPE_I32
                         || local_type == VALUE_TYPE_F32)
-                        *p_org++ = (uint8)local_offset;
+                        *p_org++ = cast(uint8)local_offset;
                     else
-                        *p_org++ = (uint8)(local_offset | 0x80);
+                        *p_org++ = cast(uint8)(local_offset | 0x80);
                     while (p_org < p)
                         *p_org++ = WASM_OP_NOP;
                 }
-#endif
-#endif
+                    }
+                }
                 break;
             }
 
@@ -6016,20 +6027,20 @@ handle_op_block_and_loop:
             {
                 p_org = p - 1;
                 mixin(GET_LOCAL_INDEX_TYPE_AND_OFFSET);
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 /* If the stack is in polymorphic state, do fake pop and push on
                     offset stack to keep the depth of offset stack to be the same
                     with ref stack */
                 BranchBlock *cur_block = loader_ctx.frame_csp - 1;
                 if (cur_block.is_stack_polymorphic) {
-                    mixin(POP_OFFSET_TYPE!(local_type);
-                    PUSH_OFFSET_TYPE(local_type);
+                    mixin(POP_OFFSET_TYPE!(local_type)());
+                    mixin(PUSH_OFFSET_TYPE!(local_type)());
                 }
-#endif
+                }
                         mixin(POP_TYPE!(local_type)());
                     mixin(PUSH_TYPE!(local_type)());
 
-#if WASM_ENABLE_FAST_INTERP != 0
+                    version(WASM_ENABLE_FAST_INTERP) {
                 if (!(preserve_referenced_local(loader_ctx, opcode, local_offset,
                                                 local_type, &preserve_local,
                                                 error_buf, error_buf_size)))
@@ -6053,20 +6064,21 @@ handle_op_block_and_loop:
                 }
                 emit_operand(loader_ctx, *(loader_ctx.frame_offset -
                         wasm_value_type_cell_num(local_type)));
-#else
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+                    }
+                    else {
+                        static if (!WASM_ENABLE_WAMR_COMPILER && !WASM_ENABLE_JIT) {
                 if (local_offset < 0x80) {
                     *p_org++ = EXT_OP_TEE_LOCAL_FAST;
                     if (local_type == VALUE_TYPE_I32
                         || local_type == VALUE_TYPE_F32)
-                        *p_org++ = (uint8)local_offset;
+                        *p_org++ = cast(uint8)local_offset;
                     else
-                        *p_org++ = (uint8)(local_offset | 0x80);
+                        *p_org++ = cast(uint8)(local_offset | 0x80);
                     while (p_org < p)
                         *p_org++ = WASM_OP_NOP;
                 }
-#endif
-#endif
+                        }
+                    }
                 break;
             }
 
@@ -6076,7 +6088,7 @@ handle_op_block_and_loop:
                 read_leb_uint32(p, p_end, global_idx);
                 if (global_idx >= global_count) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "unknown global.");
                     goto fail;
                 }
@@ -6089,14 +6101,16 @@ handle_op_block_and_loop:
 
                 mixin(PUSH_TYPE!(global_type)());
 
-#if WASM_ENABLE_FAST_INTERP == 0
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+                version(WASM_ENABLE_FAST_INTERP) {
+                    static if (!WASM_ENABLE_WAMR_COMPILER && !WASM_ENABLE_JIT) {
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
                     *p_org = WASM_OP_GET_GLOBAL_64;
                 }
-#endif
-#else /* else of WASM_ENABLE_FAST_INTERP */
+                    }
+                }
+                else {
+/* else of WASM_ENABLE_FAST_INTERP */
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
                     mixin(skip_label);
@@ -6104,7 +6118,7 @@ handle_op_block_and_loop:
                 }
                 mixin(emit_uint32!(loader_ctx, global_idx)());
                 PUSH_OFFSET_TYPE(global_type);
-#endif /* end of WASM_ENABLE_FAST_INTERP */
+                } /* end of WASM_ENABLE_FAST_INTERP */
                 break;
             }
 
@@ -6116,7 +6130,7 @@ handle_op_block_and_loop:
                 read_leb_uint32(p, p_end, global_idx);
                 if (global_idx >= global_count) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "unknown global.");
                     goto fail;
                 }
@@ -6141,8 +6155,9 @@ handle_op_block_and_loop:
 
                 mixin(POP_TYPE!(global_type)());
 
-#if WASM_ENABLE_FAST_INTERP == 0
-#if (WASM_ENABLE_WAMR_COMPILER == 0) && (WASM_ENABLE_JIT == 0)
+
+                static if(!WASM_ENABLE_FAST_INTERP) {
+                    static if (!WASM_ENABLE_WAMR_COMPILER && !WASM_ENABLE_JIT) {
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
                     *p_org = WASM_OP_SET_GLOBAL_64;
@@ -6151,8 +6166,10 @@ handle_op_block_and_loop:
                          && global_idx == wasm_module.llvm_aux_stack_global_index) {
                     *p_org = WASM_OP_SET_GLOBAL_AUX_STACK;
                 }
-#endif
-#else /* else of WASM_ENABLE_FAST_INTERP */
+                    }
+                }
+                else {
+/* else of WASM_ENABLE_FAST_INTERP */
                 if (global_type == VALUE_TYPE_I64
                     || global_type == VALUE_TYPE_F64) {
                     mixin(skip_label);
@@ -6165,7 +6182,7 @@ handle_op_block_and_loop:
                 }
                 mixin(emit_uint32!(loader_ctx, global_idx)());
                 mixin(POP_OFFSET_TYPE!(global_type)());
-#endif /* end of WASM_ENABLE_FAST_INTERP */
+                } /* end of WASM_ENABLE_FAST_INTERP */
                 break;
             }
 
@@ -6195,7 +6212,7 @@ handle_op_block_and_loop:
             case WASM_OP_F32_STORE:
             case WASM_OP_F64_STORE:
             {
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 /* change F32/F64 into I32/I64 */
                 if (opcode == WASM_OP_F32_LOAD) {
                     mixin(skip_label);
@@ -6213,17 +6230,17 @@ handle_op_block_and_loop:
                     mixin(skip_label);
                     mixin(emit_label!(WASM_OP_I64_STORE)());
                 }
-#endif
+
                 CHECK_MEMORY();
-                read_leb_uint32(p, p_end, align); /* align */
+                read_leb_uint32(p, p_end, _align); /* align */
                 read_leb_uint32(p, p_end, mem_offset); /* offset */
-                if (!check_memory_access_align(opcode, align,
+                if (!check_memory_access_align(opcode, _align,
                                                error_buf, error_buf_size)) {
                     goto fail;
                 }
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 mixin(emit_uint32!(loader_ctx, mem_offset)());
-#endif
+                }
                 switch (opcode)
                 {
                     /* load */
@@ -6282,7 +6299,7 @@ handle_op_block_and_loop:
                 /* reserved byte 0x00 */
                 if (*p++ != 0x00) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "zero flag expected");
                     goto fail;
                 }
@@ -6294,7 +6311,7 @@ handle_op_block_and_loop:
                 /* reserved byte 0x00 */
                 if (*p++ != 0x00) {
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "zero flag expected");
                     goto fail;
                 }
@@ -6311,41 +6328,42 @@ handle_op_block_and_loop:
                 disable_emit = true;
                 GET_CONST_OFFSET(VALUE_TYPE_I32, i32_const);
                 }
-                (void)i32_const;
-#endif
+                //(void)i32_const;
+            }
                 PUSH_I32();
                 break;
 
             case WASM_OP_I64_CONST:
                 read_leb_int64(p, p_end, i64);
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 mixin(skip_label);
                 disable_emit = true;
                 GET_CONST_OFFSET(VALUE_TYPE_I64, i64);
-#endif
+                }
                 mixin(PUSH_I64);
                 break;
 
             case WASM_OP_F32_CONST:
                 p += sizeof(float32);
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 mixin(skip_label);
                 disable_emit = true;
-                bh_memcpy_s((uint8*)&f32, sizeof(float32), p_org, sizeof(float32));
+                bh_memcpy_s(cast(uint8*)&f32, sizeof(float32), p_org, sizeof(float32));
                 mixin(GET_CONST_F32_OFFSET!(VALUE_TYPE_F32, f32)());
-#endif
+                }
                 PUSH_F32();
                 break;
 
             case WASM_OP_F64_CONST:
                 p += sizeof(float64);
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 mixin(skip_label);
                 disable_emit = true;
                 /* Some MCU may require 8-byte align */
-                bh_memcpy_s((uint8*)&f64, sizeof(float64), p_org, sizeof(float64));
+                bh_memcpy_s(cast(uint8*)&f64, sizeof(float64), p_org, sizeof(float64));
                 mixin(GET_CONST_F64_OFFSET!(VALUE_TYPE_F64, f64)());
                 mixin(PUSH_F64);
+}
                 break;
 
             case WASM_OP_I32_EQZ:
@@ -6575,9 +6593,9 @@ handle_op_block_and_loop:
             case WASM_OP_MISC_PREFIX:
             {
                 opcode = read_uint8(p);
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
                 emit_byte(loader_ctx, opcode);
-#endif
+                }
                 switch (opcode)
                 {
                 case WASM_OP_I32_TRUNC_SAT_S_F32:
@@ -6596,12 +6614,12 @@ handle_op_block_and_loop:
                 case WASM_OP_I64_TRUNC_SAT_U_F64:
                     POP_AND_PUSH(VALUE_TYPE_F64, VALUE_TYPE_I64);
                     break;
-#if WASM_ENABLE_BULK_MEMORY != 0
+                    static if (WASM_ENABLE_BULK_MEMORY) {
                 case WASM_OP_MEMORY_INIT:
                     read_leb_uint32(p, p_end, segment_index);
-#if WASM_ENABLE_FAST_INTERP != 0
+                    version(WASM_ENABLE_FAST_INTERP) {
                     mixin(emit_uint32!(loader_ctx, segment_index)());
-#endif
+                    }
                     if (wasm_module.import_memory_count == 0 && wasm_module.memory_count == 0)
                         goto fail_unknown_memory;
 
@@ -6609,8 +6627,8 @@ handle_op_block_and_loop:
                         goto fail_zero_flag_expected;
 
                     if (segment_index >= wasm_module.data_seg_count) {
-                        char msg[128];
-                        snprintf(msg, 128, "WASM loader prepare bytecode failed: "
+                        char[128] msg;
+                        snprintf(msg, 128, "WASM loader prepare bytecode failed: " ~
                                            "unknown data segment %d", segment_index);
                         set_error_buf(error_buf, error_buf_size, msg);
                         goto fail;
@@ -6625,12 +6643,12 @@ handle_op_block_and_loop:
                     break;
                 case WASM_OP_DATA_DROP:
                     read_leb_uint32(p, p_end, segment_index);
-#if WASM_ENABLE_FAST_INTERP != 0
+                    version(WASM_ENABLE_FAST_INTERP) {
                         mixin(emit_uint32!(loader_ctx, segment_index)());
-#endif
+                    }
                     if (segment_index >= wasm_module.data_seg_count) {
                         set_error_buf(error_buf, error_buf_size,
-                                      "WASM loader prepare bytecode failed: "
+                                      "WASM loader prepare bytecode failed: " ~
                                       "unknown data segment");
                         goto fail;
                     }
@@ -6641,7 +6659,7 @@ handle_op_block_and_loop:
                     break;
                 case WASM_OP_MEMORY_COPY:
                     /* both src and dst memory index should be 0 */
-                    if (*(int16*)p != 0x0000)
+                    if (*cast(int16*)p != 0x0000)
                         goto fail_zero_flag_expected;
                     p += 2;
 
@@ -6666,26 +6684,26 @@ handle_op_block_and_loop:
                     break;
 fail_zero_flag_expected:
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "zero flag expected");
                     goto fail;
 
 fail_unknown_memory:
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "unknown memory 0");
                     goto fail;
 fail_data_cnt_sec_require:
                     set_error_buf(error_buf, error_buf_size,
-                                  "WASM loader prepare bytecode failed: "
+                                  "WASM loader prepare bytecode failed: " ~
                                   "data count section required");
                     goto fail;
                 /* TODO: to support bulk table operation */
-#endif /* WASM_ENABLE_BULK_MEMORY */
+                    } /* WASM_ENABLE_BULK_MEMORY */
                 default:
                     if (error_buf != NULL)
                         snprintf(error_buf, error_buf_size,
-                                 "WASM module load failed: "
+                                 "WASM module load failed: " ~
                                  "invalid opcode 0xfc %02x.", opcode);
                     goto fail;
                     break;
@@ -6695,24 +6713,24 @@ fail_data_cnt_sec_require:
             default:
                 if (error_buf != NULL)
                     snprintf(error_buf, error_buf_size,
-                             "WASM module load failed: "
+                             "WASM module load failed: " ~
                              "invalid opcode %02x.", opcode);
                 goto fail;
         }
 
-#if WASM_ENABLE_FAST_INTERP != 0
+                version(WASM_ENABLE_FAST_INTERP) {
         last_op = opcode;
-#endif
+        }
     }
 
     if (loader_ctx.csp_num > 0) {
         set_error_buf(error_buf, error_buf_size,
-                      "WASM module load failed: "
+                      "WASM module load failed: " ~
                       "function body must end with END opcode.");
         goto fail;
     }
 
-#if WASM_ENABLE_FAST_INTERP != 0
+    version(WASM_ENABLE_FAST_INTERP) {
     if (loader_ctx.p_code_compiled == NULL)
         goto re_scan;
 
@@ -6725,7 +6743,7 @@ fail_data_cnt_sec_require:
     func_const_end = func.consts + func.const_cell_num * 4;
     // reverse the const buf
     for (int i = loader_ctx.num_const - 1; i >= 0; i--) {
-        Const *c = (Const*)(loader_ctx.const_buf + i * sizeof(Const));
+        Const *c = cast(Const*)(loader_ctx.const_buf + i * sizeof(Const));
         if (c.value_type == VALUE_TYPE_F64
             || c.value_type == VALUE_TYPE_I64) {
             bh_memcpy_s(func_const, func_const_end - func_const,
@@ -6740,22 +6758,23 @@ fail_data_cnt_sec_require:
 
     func.max_stack_cell_num = loader_ctx.preserved_local_offset -
                                     loader_ctx.start_dynamic_offset + 1;
-#else
+    }
+    else {
     func.max_stack_cell_num = loader_ctx.max_stack_cell_num;
-#endif
+    }
     func.max_block_num = loader_ctx.max_csp_num;
     return_value = true;
 
 fail:
     wasm_loader_ctx_destroy(loader_ctx);
 
-    (void)u8;
-    (void)u32;
-    (void)i32;
-    (void)i64;
-    (void)local_offset;
-    (void)p_org;
-    (void)mem_offset;
-    (void)align;
+    // (void)u8;
+    // (void)u32;
+    // (void)i32;
+    // (void)i64;
+    // (void)local_offset;
+    // (void)p_org;
+    // (void)mem_offset;
+    // (void)align;
     return return_value;
 }
