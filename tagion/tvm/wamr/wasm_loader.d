@@ -4912,14 +4912,16 @@ enum GET_LOCAL_INDEX_TYPE_AND_OFFSET =  q{
     local_offset = local_offsets[local_idx];
 };
 
-#define CHECK_BR(depth) do {                                        \
-    if (!wasm_loader_check_br(loader_ctx, depth,                    \
-                              error_buf, error_buf_size))           \
-        goto fail;                                                  \
-  } while (0)
+string CHECK_BR(alias depth)() {
+    return format!q{
+    if (!wasm_loader_check_br(loader_ctx, %1$s,
+                              error_buf, error_buf_size))
+        goto fail;
+    }(depth.stringof);
+}
 
 static bool
-check_memory(WASMModule *module,
+check_memory(WASMModule *wasm_module,
              char *error_buf, uint32 error_buf_size)
 {
     if (wasm_module.memory_count == 0
@@ -4931,10 +4933,10 @@ check_memory(WASMModule *module,
     return true;
 }
 
-#define CHECK_MEMORY() do {                                         \
-    if (!check_memory(module, error_buf, error_buf_size))           \
-      goto fail;                                                    \
-  } while (0)
+enum CHECK_MEMORY = q{
+    if (!check_memory(wasm_module, error_buf, error_buf_size))
+      goto fail;
+};
 
 static bool
 check_memory_access_align(uint8 opcode, uint32 align,
@@ -5046,7 +5048,7 @@ check_branch_block(WASMLoaderContext *loader_ctx,
     uint32 depth;
 
     read_leb_uint32(p, p_end, depth);
-    CHECK_BR(depth);
+    mixin(CHECK_BR!(depth)());
     frame_csp_tmp = loader_ctx.frame_csp - depth - 1;
     version(WASM_ENABLE_FAST_INTERP) {
     mixin(emit_br_info!(frame_csp_tmp)());
