@@ -35,7 +35,7 @@ version (OS_ENABLE_HW_BOUND_CHECK) {
 }
 
 /* Execution environment */
-struct WASMExecEnv {
+@safe @nogc struct WASMExecEnv {
     /* Next thread's exec env of a WASM module instance. */
     WASMExecEnv* next;
 
@@ -119,7 +119,214 @@ struct WASMExecEnv {
         S s;
     }
 
-    WASM_STACK wasm_stack;
+//    WASM_STACK wasm_stack;
+    WasmType[] stack;
+    size_t sp; // Stack pointer;
+    // ALU function
+    T pop(T)() const pure if (isOneOf!(T, WasmTypes)) {
+        return stack[--sp].get!T;
+    }
+    void push(T)(const T x) if (isOneOf!(T, WasmTypes)) {
+        stack[sp++]=x;
+    }
+    void pop(Args...)(ref Args args) const pure if (allSatify!(Args, isOneOf!(T, WasmTypes))) {
+        static foreach_reverse(i_sp, ref arg; args) {
+            arg=stack[sp-i_sp-1].get!(Args[i]);
+        }
+        sp-=Args.length;
+    }
+    T peek(T)() const pure if (isOneOf!(T, WasmTypes)) {
+        return stack[sp-1].get!T;
+    }
+    void drop() {
+        sp--;
+    }
+    void op_cat(T, string OP)() nothrow {
+        enum code=format!q{stack[sp-2] %s= stack[sp-1].get!T;}(OP);
+        mixin(code);
+        sp--;
+    }
+    void op_general(T, string OP)() nothrow {
+        enum code=format!q{stack[sp-1] = %s stack[sp-1].get!T;}(OP);
+        mixin(code);
+//        sp--;
+    }
+
+    void op_math(T, alias func)() nothrow {
+        import math=std.math;
+        enum code=format!q{stack[sp-1] = %s(stack[sp-1].get!T);}(func.stringof);
+        mixin(code);
+    }
+    void op_eqz(T)() nothrow if (isIntegral!T) {
+        stack[sp-1] = stack[sp-1].get!T == T(0);
+    }
+    void op_cmp(T, string OP)() nothrow if (isNumeric!T) {
+        enum code = format!q{stack[sp-2] = stack[sp-2].get!T %s stack[sp-1].get!T;}(OP);
+        mixin(code);
+        sp--;
+    }
+
+
+    void op_min(T)() nothrow if (isFloatingPoint!T) {
+        import std.math : fmin;
+        stack[sp-2] = fmin(stack[sp-1], stack[sp-2]);
+        sp--;
+    }
+    void op_max(T)() nothrow if (isFloatingPoint!T) {
+        import std.math : fmax;
+        stack[sp-2] = fmax(stack[sp-1], stack[sp-2]);
+        sp--;
+    }
+    void op_convert(DST, SRC)() nothrow if (isNumeric!DST && isNumeric!SRC) {
+        stack[sp-1] = cast(DST)stack[sp-1].get!SRC;
+    }
+
+    void op_copysign(T)() nothrow if (isFloatingPoint!T) {
+        import std.math.traits : signbit;
+        const a=stack[sp-2];
+        const b=stack[sp-1];
+        stack[sp-2] = (signbit(b) ? -math.fabs(a) : math.fabs(a));
+        sp--;
+    }
+
+    void op_select() nothrow {
+        const flag=stack[sp-1].get!int;
+        if (flag is int(0)) {
+            stack[sp-3] = stack[sp-2];
+        }
+        sp-=2;
+    }
+    void op_rotl(T)() nothrow if (isSigned!T) {
+        const n=stack[sp-1].get!T;
+        T c=stack[sp-2].get!T;
+        enum mask = T.sizeof * 8 - 1;
+        c &= mask;
+        stack[sp-2] = (n>>c) | (n<<( (-c)&mask ));
+        sp--;
+    }
+    void op_rotr(T)() nothrow if (isSigned!T) {
+        const n=stack[sp-1].get!T;
+        T c=stack[sp-2].get!T;
+        enum mask = T.sizeof * 8 - 1;
+        c &= mask;
+        stack[sp-2] = (n>>c) | (n<<( (-c)&mask ));
+        sp--;
+    }
+    bool op_rem(T)(ref WasmModule wasm_module) nothrow if(isSigned!T) {
+        const a = stack[sp-2].get!T;
+        const b = stack[sp-1].get!T;
+        static if (isSigned!T) {
+            if (a == T(T(1) << T.sizeof * 8 -1) && b == -1) {
+                stack[sp-2] = T(0);
+                return false;
+            }
+        }
+        if (b == 0) {
+            wasm_set_exception(wasm_module, "integer divide by zero");
+            return true;
+        }
+        stack[sp-2] = a % b;
+        sp--;
+        return false;
+    }
+
+    bool op_div(T)(ref WasmModule wasm_module) nothrow if(isIntegral!T) {
+        const a = stack[sp-2].get!T;
+        const b = stack[sp-1].get!T;
+        static if (isSigned!T) {
+            if (a == T(T(1) << T.sizeof * 8 -1) && b == -1) {
+                wasm_set_exception(wasm_module, "integer overflow");
+                return true;
+            }
+        }
+        if (b == 0) {
+          wasm_set_exception(wasm_module, "integer divide by zero");
+          return true;
+        }
+        stack[sp-2] = a / b;
+        return false;
+    }
+
+    void op_popcount(T)() {
+        static uint count_ones(size_t BITS=T.sizeof*8)(const T x) pure nothrow {
+                static if ( BITS == 1 ) {
+                    return x & 0x1;
+                }
+                else if ( x == 0 ) {
+                    return 0;
+                }
+                else {
+                    enum HALF_BITS=BITS/2;
+                    enum MASK=T(1UL << (HALF_BITS))-1;
+                    return count_ones!(HALF_BITS)(x & MASK) + count_ones!(HALF_BITS)(x >> HALF_BITS);
+                }
+        }
+        stack[sp-1]=count_ones(stack[sp-1].get!T);
+    }
+
+    void clz(T)() nothrow {
+        static uint count_leading_zeros(size_t BITS=T.sizeof*8)(const T x) pure nothrow {
+            static if (BITS == 0) {
+                return 0;
+            }
+            else if (x == 0) {
+                return BITS;
+            }
+            else {
+                enum HALF_BITS=BITS/2;
+                enum MASK=T(T(1) << (HALF_BITS))-1;
+                const count=count_leading_zeros!HALF_BITS(x & MASK);
+                if (count == HALF_BITS) {
+                    return count + count_leading_zeros!HALF_BITS(x >> HALF_BITS);
+                }
+                return count;
+            }
+            assert(0);
+        }
+        stack[sp-1] = count_leading_zeros(stack[sp-1].get!T);
+    }
+
+    void ctz(T)() nothrow {
+        static uint count_trailing_zeros(size_t BITS=T.sizeof*8)(const T x) pure nothrow {
+            static if (BITS == 0) {
+                return 0;
+            }
+            else if (x == 0) {
+                return BITS;
+            }
+            else {
+                enum HALF_BITS=BITS/2;
+                enum MASK=T(T(1) << (HALF_BITS))-1;
+                const count=count_trailing_zeros!HALF_BITS(x >> HALF_BITS);
+                if (count == HALF_BITS) {
+                    return count + count_trailing_zeros!HALF_BITS(x & MASK);
+                }
+                return count;
+            }
+            assert(0);
+        }
+        stack[sp-1] = count_trailing_zeros(stack[sp-1].get!T);
+    }
+
+    void load(T)(const size_t effective_offset) {
+        version(BigEndian) {
+            static assert(0, "BigEndian not supported yet");
+        }
+        const addr = stack[sp-1].get!uint;
+        const effective_address = effective_offset + addr;
+        stack[sp-1] = cast(T)memory[effective_index..effective_index+T.sizeof];
+
+    }
+    void store(DST, SRC)(const size_t effective_offset) {
+        version(BigEndian) {
+            static assert(0, "BigEndian not supported yet");
+        }
+        const addr = stack[sp-1].get!uint;
+        const effective_address = effective_offset + addr;
+        memory[effective_index..effective_index+DST.sizeof] =
+            (cast(ubyte*)&stack[sp-2])[0..DST.sizeof];
+        sp--;
+    }
 }
 
 // WASMExecEnv*
