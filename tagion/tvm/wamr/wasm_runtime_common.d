@@ -1218,7 +1218,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
 
     }
 
-    const char* wasm_runtime_get_exception(WASMModuleInstanceCommon* module_inst) {
+    const(char*) wasm_runtime_get_exception(WASMModuleInstanceCommon* module_inst) {
         version (WASM_ENABLE_INTERP) {
             if (module_inst.module_type == Wasm_Module_Bytecode) {
                 return wasm_get_exception(cast(WASMModuleInstance*) module_inst);
@@ -1943,6 +1943,7 @@ wasm_runtime_invoke_native_raw(WASMExecEnv *exec_env, void *func_ptr,
         return wasm_runtime_create_exec_env_and_call_wasm(module_inst, func, argc1, argv1);
     }
 }
+version(none)
 version (WASM_ENABLE_MULTI_MODULE) {
     protected WASMModuleInstance* get_sub_module_inst(
             const WASMModuleInstance* parent_module_inst, const char* sub_module_name) {

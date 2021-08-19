@@ -2,34 +2,39 @@
  * Copyright (C) 2019 Intel Corporation.  All rights reserved.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
-module tagion.tvm.wamr.wasm_interp_classic;
+module tagion.tvm.wamr.TVMInterpreter;
 
 import tagion.tvm.wamr.wasm;
 import tagion.tvm.wamr.TVMExtOpcode;
+import tagion.tvm.wamr.TVMBasic : FunctionInstance;
+import tagion.tvm.wamr.TVMLoader : ModuleInstance;
+import tagion.tvm.wamr.TVMExecEnv : TVMExecEnv;
+import std.traits : isIntegral;
+import LEB128 = tagion.utils.LEB128;
 
 struct WASMInterpFrame {
   /* The frame of the caller that are calling the current function. */
     WASMInterpFrame *prev_frame;
 
     /* The current WASM function. */
-    WASMFunctionInstance* func;
+    FunctionInstance* func;
 
     /* Instruction pointer of the bytecode array.  */
-  uint8 *ip;
+  ubyte *ip;
 
     version(WASM_ENABLE_FAST_INTERP) {
   /* return offset of the first return value of current frame.
     the callee will put return values here continuously */
-        uint32 ret_offset;
-        uint32 *lp;
-        uint32[1] operand;
+        uint ret_offset;
+        uint *lp;
+        uint[1] operand;
     }
     else {
   /* Operand stack top pointer of the current frame.  The bottom of
      the stack is the next cell after the last local variable.  */
-        uint32 *sp_bottom;
-        uint32 *sp_boundary;
-        uint32 *sp;
+        uint *sp_bottom;
+        uint *sp_boundary;
+        uint *sp;
 
         WASMBranchBlock *csp_bottom;
         WASMBranchBlock *csp_boundary;
@@ -41,51 +46,22 @@ struct WASMInterpFrame {
      csp_bottom to csp_boundary: stack of block
      ref to frame end: data types of local vairables and stack data
      */
-        uint32[1] lp;
+        uint[1] lp;
     }
 }
 
 void
-wasm_interp_call_func_bytecode(ref const(WASMModuleInstance) wasm_module,
-                               ref WASMExecEnv exec_env,
-                               WASMFunctionInstance *cur_func,
+wasm_interp_call_func_bytecode(ref const(ModuleInstance) mod_instance,
+                               ref TVMExecEnv exec_env,
+                               FunctionInstance *cur_func,
                                WASMInterpFrame *prev_frame)
 {
-  // WASMMemoryInstance* memory = wasm_module.default_memory;
-  // int32 heap_base_offset = memory ? memory.heap_base_offset : 0;
-  // uint32 num_bytes_per_page = memory ? memory.num_bytes_per_page : 0;
-  // uint8* global_data = wasm_module.global_data;
-  // uint32 linear_mem_size = memory ? num_bytes_per_page * memory.cur_page_count : 0;
-  // WASMTableInstance *table = wasm_module.default_table;
-  // WASMType **wasm_types = wasm_module.wasm_module.types;
-  // WASMGlobalInstance *globals = wasm_module.globals, global;
-  // uint8 opcode_IMPDEP = WASM_OP_IMPDEP;
-  // WASMInterpFrame *frame = NULL;
-  // /* Points to this special opcode so as to jump to the call_method_from_entry.  */
-  // uint8  *frame_ip = &opcode_IMPDEP; /* cache of frame.ip */
-  // uint32 *frame_lp = NULL;  /* cache of frame.lp */
-  // uint32 *frame_sp = NULL;  /* cache of frame.sp */
-  // WASMBranchBlock *frame_csp = NULL;
-  // BlockAddr *cache_items;
-  // uint8 *frame_ip_end = frame_ip + 1;
-  // uint8 opcode;
-  // uint32 *depths = NULL;
-  // uint32[BR_TABLE_TMP_BUF_LEN] depth_buf;
-  // uint32 i, depth, cond, count, fidx, tidx, frame_size = 0;
-  // uint64 all_cell_num = 0;
-  // int32 didx, val;
-  // uint8* else_addr, end_addr, maddr;
-  // uint32 local_idx, local_offset, global_idx;
-  // uint8 local_type;
-  // uint8 *global_addr;
-  // uint32 cache_index, type_index, cell_num;
-  // uint8 value_type;
-    void bytecode_func(uint ip, uint local_offset, const local_size) {
+    void bytecode_func(uint ip, const uint local_offset, const uint local_size) {
         auto locals = exec_env.locals[local_offset..local_offset+local_size];
-FETCH_LOOP: while(ip < frame.length) {
-    const opcode = frame[ip++];
+FETCH_LOOP: while(ip < mod_instance.frame.length) {
+    const opcode = mod_instance.frame[ip++];
     @safe void read_leb(T)(ref T x) nothrow if (isIntegral!T) {
-        const result=LEB128.decode!T(frame[ip..$]);
+        const result=LEB128.decode!T(mod_instance.frame[ip..$]);
         ip+=cast(uint)result.size;
         x=result.value;
     }
@@ -139,21 +115,21 @@ FETCH_LOOP: while(ip < frame.length) {
     with(ExtendedIR) {
         final switch (opcode) {
       case UNREACHABLE:
-        wasm_set_exception(wasm_module, "unreachable");
+          exec_env.set_exception(ip,"unreachable");
         goto case ERROR;
         continue;
       case BR_IF:
         const cond = exec_env.pop!int;
-        const branch_else = frame[ip..$].binread!uint(ip);
+        const branch_else = mod_instance.frame[ip..$].binread!uint(ip);
         /* condition of the if branch is false, else condition is met */
         if (cond == 0) {
-            ip = branch_false;
+            ip = branch_else;
         }
         continue;
       case BR_TABLE:
           uint lN;
           read_leb(lN);
-          const L=(cast(uint*)&frame[ip])[0..lN+1];
+          const L=(cast(uint*)&mod_instance.frame[ip])[0..lN+1];
           const didx = exec_env.pop!uint;
           if (didx < lN) {
               ip = L[didx];
@@ -172,20 +148,20 @@ FETCH_LOOP: while(ip < frame.length) {
 
       case CALL:
           uint fidx;
-          read_led(fidx);
+          read_leb(fidx);
           const func = exec_env.funcs[fidx];
           bytecode_func(func.ip, local_offset+local_size, func.local_size);
           continue;
-      case EXT_CALL:
+      case EXTERNAL_CALL:
           uint fidx;
-          read_led(fidx);
+          read_leb(fidx);
           const func = exec_env.funcs[fidx];
           assert(0, "Imported function is not supported yet");
           //bytecode_func(func.ip, local_offset+local_size, func.local_size);
           continue;
       case CALL_INDIRECT:
           const fidx = exec_env.pop!uint;
-          if (exec_env.isLocalFunc(fidx)) {
+          if (mod_instance.isLocalFunc(fidx)) {
               const func = exec_env.funcs[fidx];
               bytecode_func(func.ip, local_offset+local_size, func.local_size);
           }
@@ -200,25 +176,25 @@ FETCH_LOOP: while(ip < frame.length) {
       case SELECT:
           exec_env.op_select;
           continue;
-      case GET_LOCAL:
-          const local_index = read_led!uint;
+      case LOCAL_GET:
+          const local_index = read_leb!uint;
           exec_env.push(locals[local_index]);
           continue;
-      case SET_LOCAL:
-          const local_index = read_led!uint;
+      case LOCAL_SET:
+          const local_index = read_leb!uint;
           locals[local_index] = exec_env.pop!long;
           continue;
-      case TEE_LOCAL:
-          const local_index = read_led!uint;
+      case LOCAL_TEE:
+          const local_index = read_leb!uint;
           locals[local_index] = exec_env.peek!long;
           continue;
-      case GET_GLOBAL:
-          const global_index = read_led!uint;
-          exec_env.push(globals[global_index]);
+      case GLOBAL_GET:
+          const global_index = read_leb!uint;
+          exec_env.push(exec_env.globals[global_index]);
           continue;
-        case SET_GLOBAL:
-            const global_index = read_led!uint;
-          globals[global_index] = exec_env.pop!long;
+        case GLOBAL_SET:
+            const global_index = read_leb!uint;
+          exec_env.globals[global_index] = exec_env.pop!long;
           continue;
       /* memory load instructions */
         case I32_LOAD:
@@ -287,13 +263,13 @@ FETCH_LOOP: while(ip < frame.length) {
             continue;
       /* memory size and memory grow instructions */
         case MEMORY_SIZE:
-            uint32 reserved;
+            uint reserved;
             read_leb(reserved);
             PUSH_I32(memory.cur_page_count);
             continue;
 
         case MEMORY_GROW:
-            uint32 reserved, delta, prev_page_count = memory.cur_page_count;
+            uint reserved, delta, prev_page_count = memory.cur_page_count;
 
             read_leb(reserved);
             delta = exec_env.pop!uint;
@@ -645,14 +621,14 @@ FETCH_LOOP: while(ip < frame.length) {
           continue;
       /* conversions of i32 */
       case I32_WRAP_I64:
-          const value = exec_env.pop!int; //(int32)(PI64() & 0xFFFFFFFFLL);
+          const value = exec_env.pop!int; //(int)(PI64() & 0xFFFFFFFFLL);
           exec_env.push(value);
           continue;
       case I32_TRUNC_S_F32:
-        /* We don't use INT32_MIN/INT32_MAX/UINT32_MIN/UINT32_MAX,
+        /* We don't use INT_MIN/INT_MAX/UINT_MIN/UINT_MAX,
            since float/double values of ieee754 cannot precisely represent
-           all int32/uint32/int64/uint64 values, e.g.:
-           UINT32_MAX is 4294967295, but (float32)4294967295 is 4294967296.0f,
+           all int/uint/int64/uint64 values, e.g.:
+           UINT_MAX is 4294967295, but (float32)4294967295 is 4294967296.0f,
            but not 4294967295.0f. */
             op_trunc!(int, float, true);
             continue;
@@ -812,12 +788,12 @@ FETCH_LOOP: while(ip < frame.length) {
 //                        + (uint64)cur_func.local_cell_num
 //                        + (uint64)cur_wasm_func.max_stack_cell_num
 //                        + ((uint64)cur_wasm_func.max_block_num) * sizeof(WASMBranchBlock) / 4;
-//         if (all_cell_num >= UINT32_MAX) {
+//         if (all_cell_num >= UINT_MAX) {
 //             wasm_set_exception(wasm_module, "WASM interp failed: stack overflow.");
 //             goto case ERROR;
 //         }
 
-//         frame_size = wasm_interp_interp_frame_size((uint32)all_cell_num);
+//         frame_size = wasm_interp_interp_frame_size((uint)all_cell_num);
 //         if (!(frame = ALLOC_FRAME(exec_env, frame_size, prev_frame))) {
 //           frame = prev_frame;
 //           goto case ERROR;
@@ -838,7 +814,7 @@ FETCH_LOOP: while(ip < frame.length) {
 
 //         /* Initialize the local varialbes */
 //         memset(frame_lp + cur_func.param_cell_num, 0,
-//                (uint32)(cur_func.local_cell_num * 4));
+//                (uint)(cur_func.local_cell_num * 4));
 
 //         /* Push function block as first block */
 //         cell_num = func_type.ret_cell_num;
@@ -884,7 +860,7 @@ void
 wasm_interp_call_wasm(WASMModuleInstance *module_inst,
                       WASMExecEnv *exec_env,
                       WASMFunctionInstance *func,
-                      uint32 argc, uint32[] argv)
+                      uint argc, uint[] argv)
 {
     // TODO: since module_inst = exec_env.module_inst, shall we remove the 1st arg?
     WASMRuntimeFrame *prev_frame = wasm_exec_env_get_cur_frame(exec_env);
@@ -906,7 +882,7 @@ wasm_interp_call_wasm(WASMModuleInstance *module_inst,
         return;
     }
 
-    if (cast(uint8*)&prev_frame < exec_env.native_stack_boundary) {
+    if (cast(ubyte*)&prev_frame < exec_env.native_stack_boundary) {
         wasm_set_exception(cast(WASMModuleInstance*)exec_env.module_inst,
                            "WASM interp failed: native stack overflow.");
         return;

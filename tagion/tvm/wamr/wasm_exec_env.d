@@ -7,7 +7,7 @@ module tagion.tvm.wamr.wasm_exec_env;
 import tagion.tvm.wamr.bh_assert;
 import tagion.tvm.wamr.wasm;
 import tagion.tvm.platform.platform;
-
+import tagion.tvm.wamr.TVMBasic : WasmType;
 // #ifndef _WASM_EXEC_ENV_H
 // #define _WASM_EXEC_ENV_H
 

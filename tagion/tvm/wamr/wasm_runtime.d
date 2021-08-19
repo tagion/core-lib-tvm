@@ -9,6 +9,7 @@ module tagion.tvm.wamr.wasm_runtime;
 
 import tagion.tvm.wamr.wasm;
 import tagion.tvm.wamr.bh_hashmap;
+import tagion.tvm.wamr.bh_list;
 import tagion.tvm.wamr.wasm_runtime_common;
 import tagion.tvm.wamr.wasm_exec_env;
 
@@ -427,7 +428,7 @@ wasm_unload(WASMModule *wasm_module)
 }
 
 static void *
-runtime_malloc(uint64 size, char *error_buf, uint error_buf_size)
+runtime_malloc(ulong size, char *error_buf, uint error_buf_size)
 {
     void *mem;
 
