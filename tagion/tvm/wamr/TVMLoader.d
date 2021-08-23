@@ -118,7 +118,7 @@ import std.outbuffer;
     immutable(ubyte[]) frame;
     // immutable(ImportType[]) imports_sec;
     // immutable(ExportType[]) exports_sec;
-    // immutable(FuncType[]) functions_sec;
+//    immutable(FuncType[]) funcs_sec;
     immutable(FunctionInstance[]) funcs_table;
     struct IndirectCallTable {
         ubyte internal_func_offset;
@@ -160,9 +160,9 @@ import std.outbuffer;
         //exports_sec = sections[Section.EXPORT][].array;
         //     .map!((ref a) => &a)
         //     .array;
-        //    funcs_sec = sections[Section.FUNC][].array;
-        //     .map!((ref a) => &a)
-        //     .array;
+        //funcs_sec = sections[Section.FUNC][].array;
+        // .map!((ref a) => &a)
+        //      .array;
         FunctionInstance[] _funcs_table;
         _funcs_table.length = _funcs_table.length;
 
@@ -240,6 +240,8 @@ import std.outbuffer;
                                 bout(ExtendedIR.BR, cast(uint)(labels.length-1));
                             }
                             // else Simple End
+                            break;
+                        case PREFIX:
                             break;
                         case BRANCH:
                             bout(elm.code.convert, elm.warg.get!uint);
@@ -352,7 +354,7 @@ import std.outbuffer;
         pragma(msg, typeof(sections[Section.TYPE][]));
         scope const func_type = sections[Section.TYPE][][sec_func.idx]; // typeidx
         pragma(msg, typeof(c.locals));
-        func.local_count = cast(ushort)c.locals.walkLength;
+        func.local_size = cast(ushort)c.locals.walkLength;
         func.ip = cast(uint)frame_buf.offset;
         // c.locals[].walkLength;
         // func_indices[funcidx] = cast(uint)bout.offset;

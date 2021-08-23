@@ -4,13 +4,16 @@
  */
 module tagion.tvm.wamr.TVMInterpreter;
 
+import std.stdio;
+
 import tagion.tvm.wamr.wasm;
 import tagion.tvm.wamr.TVMExtOpcode;
 import tagion.tvm.wamr.TVMBasic : FunctionInstance;
 import tagion.tvm.wamr.TVMLoader : ModuleInstance;
 import tagion.tvm.wamr.TVMExecEnv : TVMExecEnv;
-import std.traits : isIntegral;
+import std.traits : isIntegral, isFloatingPoint, isNumeric;
 import LEB128 = tagion.utils.LEB128;
+import std.bitmanip : binpeek = peek;
 
 struct WASMInterpFrame {
   /* The frame of the caller that are calling the current function. */
@@ -56,7 +59,7 @@ wasm_interp_call_func_bytecode(ref const(ModuleInstance) mod_instance,
                                FunctionInstance *cur_func,
                                WASMInterpFrame *prev_frame)
 {
-    void bytecode_func(uint ip, const uint local_offset, const uint local_size) {
+    void bytecode_func(size_t ip, const uint local_offset, const uint local_size) {
         auto locals = exec_env.locals[local_offset..local_offset+local_size];
 FETCH_LOOP: while(ip < mod_instance.frame.length) {
     const opcode = mod_instance.frame[ip++];
@@ -65,16 +68,17 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
         ip+=cast(uint)result.size;
         x=result.value;
     }
-    @safe void op_const(T)() nothrow {
+    void op_const(T)() @trusted nothrow {
         static if (isIntegral!T) {
             T x;
             read_leb(x);
-            exec_eval.push(x);
+            exec_env.push(x);
         }
         else static if (isFloatingPoint!T) {
-            T x=cast(T)frame[ip..ip+T.sizeof];
+//            assert(ip+T.sizeof < mod_instance.frame
+            T x=*cast(T*)&mod_instance.frame[ip]; //..ip+T.sizeof];
             ip+=T.sizeof;
-            exec_eval.push(x);
+            exec_env.push(x);
         }
         else {
             static assert(0, format!"%s is not supported"(T.stringof));
@@ -94,7 +98,7 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
         read_leb!uint(offset);
         exec_env.store!DST(offset << alignment);
     }
-    @safe void op_trunc(DST, SRC, bool saturation)() nothrow if (isNumeric!DST && isNumeric!SRC) {
+    @safe void op_trunc(DST, SRC, bool saturating)() nothrow if (isNumeric!DST && isNumeric!SRC) {
         const src_value = exec_env.pop!SRC;
         static if (isFloatingPoint!SRC && !saturating) {
             if (isnan(src_value)) {
@@ -111,7 +115,7 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
         return false;
 
     }
-    import math=std.math;
+    import std.math;
     with(ExtendedIR) {
         final switch (opcode) {
       case UNREACHABLE:
@@ -120,7 +124,8 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
         continue;
       case BR_IF:
         const cond = exec_env.pop!int;
-        const branch_else = mod_instance.frame[ip..$].binread!uint(ip);
+        const branch_else = mod_instance.frame[ip..$].binpeek!uint(&ip);
+        //ip+=uint.sizeof;
         /* condition of the if branch is false, else condition is met */
         if (cond == 0) {
             ip = branch_else;
@@ -149,20 +154,22 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
       case CALL:
           uint fidx;
           read_leb(fidx);
-          const func = exec_env.funcs[fidx];
+          const func = mod_instance.funcs_table[fidx];
           bytecode_func(func.ip, local_offset+local_size, func.local_size);
           continue;
       case EXTERNAL_CALL:
           uint fidx;
           read_leb(fidx);
-          const func = exec_env.funcs[fidx];
+          const func = mod_instance.funcs_table[fidx];
+          //if (func.isLocalFunc) {
           assert(0, "Imported function is not supported yet");
           //bytecode_func(func.ip, local_offset+local_size, func.local_size);
           continue;
       case CALL_INDIRECT:
           const fidx = exec_env.pop!uint;
-          if (mod_instance.isLocalFunc(fidx)) {
-              const func = exec_env.funcs[fidx];
+          const func = mod_instance.funcs_table[fidx];
+          if (func.isLocalFunc) {
+//              const func = exec_env.funcs[fidx];
               bytecode_func(func.ip, local_offset+local_size, func.local_size);
           }
           else {
@@ -177,23 +184,28 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
           exec_env.op_select;
           continue;
       case LOCAL_GET:
-          const local_index = read_leb!uint;
+          uint local_index;
+          read_leb(local_index);
           exec_env.push(locals[local_index]);
           continue;
       case LOCAL_SET:
-          const local_index = read_leb!uint;
+          uint local_index;
+          read_leb(local_index);
           locals[local_index] = exec_env.pop!long;
           continue;
       case LOCAL_TEE:
-          const local_index = read_leb!uint;
+          uint local_index;
+          read_leb(local_index);
           locals[local_index] = exec_env.peek!long;
           continue;
       case GLOBAL_GET:
-          const global_index = read_leb!uint;
+          uint global_index;
+          read_leb(global_index);
           exec_env.push(exec_env.globals[global_index]);
           continue;
         case GLOBAL_SET:
-            const global_index = read_leb!uint;
+          uint global_index;
+          read_leb(global_index);
           exec_env.globals[global_index] = exec_env.pop!long;
           continue;
       /* memory load instructions */
@@ -258,37 +270,17 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
         case I64_STORE16:
             store!(short, long);
             continue;
-        case P_I64_STORE32:
+        case I64_STORE32:
             store!(int, long);
             continue;
       /* memory size and memory grow instructions */
         case MEMORY_SIZE:
-            uint reserved;
-            read_leb(reserved);
-            PUSH_I32(memory.cur_page_count);
+            exec_env.op_memory_size;
             continue;
 
         case MEMORY_GROW:
-            uint reserved, delta, prev_page_count = memory.cur_page_count;
-
-            read_leb(reserved);
-            delta = exec_env.pop!uint;
-
-            if (!wasm_enlarge_memory(wasm_module, delta)) {
-                /* fail to memory.grow, return -1 */
-                PUSH_I32(-1);
-                if (wasm_get_exception(wasm_module)) {
-                    os_printf("%sn", wasm_get_exception(wasm_module));
-                    wasm_set_exception(wasm_module, NULL);
-                }
-            }
-            else {
-                /* success, return previous page count */
-                PUSH_I32(prev_page_count);
-                /* update the memory instance ptr */
-                memory = wasm_module.default_memory;
-                linear_mem_size = num_bytes_per_page * memory.cur_page_count;
-            }
+            exec_env.op_memory_grow;
+            continue;
             continue;
         case I32_CONST:
             op_const!int;
@@ -419,57 +411,57 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
           exec_env.op_popcount!int;
           continue;
       case I32_ADD:
-          exec_env.op_general!(uint, "+");
+          exec_env.op_cat!(uint, "+");
           continue;
       case I32_SUB:
-          exec_env.op_general!(uint, "-");
+          exec_env.op_cat!(uint, "-");
           continue;
       case I32_MUL:
-          exec_env.op_general!(uint, "*");
+          exec_env.op_cat!(uint, "*");
           continue;
       case I32_DIV_S:
-          if (exec_env.op_div!int(wasm_module)) {
+          if (exec_env.op_div!int(ip)) {
               goto case ERROR;
           }
           continue;
       case I32_DIV_U:
-          if (exec_env.op_div!uint(wasm_module)) {
+          if (exec_env.op_div!uint(ip)) {
               goto case ERROR;
           }
           continue;
       case I32_REM_S:
-          if(exec_env.op_rem!int(wasm_module)) {
+          if(exec_env.op_rem!int(ip)) {
               goto case ERROR;
           }
           continue;
       case I32_REM_U:
-          if(exec_env.op_rem!uint(wasm_module)) {
+          if(exec_env.op_rem!uint(ip)) {
               goto case ERROR;
           }
           continue;
       case I32_AND:
-          exec_env.op_general!(uint, "&");
+          exec_env.op_cat!(uint, "&");
           continue;
       case I32_OR:
-          exec_env.op_general!(uint, "|");
+          exec_env.op_cat!(uint, "|");
           continue;
       case I32_XOR:
-          exec_env.op_general!(uint, "^");
+          exec_env.op_cat!(uint, "^");
           continue;
       case I32_SHL:
-          exec_env.op_general!(uint, "<<");
+          exec_env.op_cat!(uint, "<<");
           continue;
       case I32_SHR_S:
-          exec_env.op_general!(int, ">>");
+          exec_env.op_cat!(int, ">>");
           continue;
       case I32_SHR_U:
-          exec_env.op_general!(uint, ">>");
+          exec_env.op_cat!(uint, ">>");
           continue;
       case I32_ROTL:
-          exec_env.rotl!int;
+          exec_env.op_rotl!int;
           continue;
       case I32_ROTR:
-          exec_env.rotr!int;
+          exec_env.op_rotr!int;
           continue;
       /* numberic instructions of i64 */
       case I64_CLZ:
@@ -482,31 +474,31 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
           exec_env.op_popcount!int;
           continue;
       case I64_ADD:
-          exec_env.op_general!(ulong, "+");
+          exec_env.op_cat!(ulong, "+");
           continue;
       case I64_SUB:
-          exec_env.op_general!(ulong, "-");
+          exec_env.op_cat!(ulong, "-");
           continue;
       case I64_MUL:
-          exec_env.op_general!(ulong, "*");
+          exec_env.op_cat!(ulong, "*");
           continue;
       case I64_DIV_S:
-          if (exec_env.op_div!long(wasm_module)) {
+          if (exec_env.op_div!long(ip)) {
               goto case ERROR;
           }
           continue;
       case I64_DIV_U:
-          if (exec_env.op_div!ulong(wasm_module)) {
+          if (exec_env.op_div!ulong(ip)) {
               goto case ERROR;
           }
           continue;
       case I64_REM_S:
-          if(exec_env.op_rem!long(wasm_module)) {
+          if(exec_env.op_rem!long(ip)) {
               goto case ERROR;
           }
           continue;
       case I64_REM_U:
-          if(exec_env.op_rem!ulong(wasm_module)) {
+          if(exec_env.op_rem!ulong(ip)) {
               goto case ERROR;
           }
           continue;
@@ -529,32 +521,33 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
           exec_env.op_cat!(ulong, ">>");
           continue;
       case I64_ROTL:
-          exec_env.rotl!long;
+          exec_env.op_rotl!long;
           continue;
       case I64_ROTR:
-          exec_env.rotr!long;
+          exec_env.op_rotr!long;
           continue;
       /* numberic instructions of f32 */
       case F32_ABS:
-          exec_env.op_math!(float, math.fabs);
+          const x=fabs(float(-1));
+          exec_env.op_math!(float, "fabs");
           continue;
       case F32_NEG:
           exec_env.op_unary!(float, "-");
           continue;
       case F32_CEIL:
-          exec_env.op_math!(float, math.ceil);
+          exec_env.op_math!(float, "ceil");
           continue;
       case F32_FLOOR:
-          exec_env.op_math!(float, math.floor);
+          exec_env.op_math!(float, "floor");
           continue;
       case F32_TRUNC:
-          exec_env.op_math!(float, math.trunc);
+          exec_env.op_math!(float, "trunc");
           continue;
       case F32_NEAREST:
-          exec_env.op_math!(float, math.rint);
+          exec_env.op_math!(float, "rint");
           continue;
       case F32_SQRT:
-          exec_env.op_math!(float, math.sqrt);
+          exec_env.op_math!(float, "sqrt");
           continue;
       case F32_ADD:
           exec_env.op_cat!(float, "+");
@@ -578,25 +571,25 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
           exec_env.op_copysign!float;
           continue;
       case F64_ABS:
-          exec_env.op_math!(float, math.fabs);
+          exec_env.op_math!(float, "fabs");
           continue;
           case F64_NEG:
               exec_env.op_unary!(double, "-");
               continue;
       case F64_CEIL:
-          exec_env.op_math!(double, math.ceil);
+          exec_env.op_math!(double, "ceil");
           continue;
       case F64_FLOOR:
-          exec_env.op_math!(double, math.floor);
+          exec_env.op_math!(double, "floor");
           continue;
       case F64_TRUNC:
-          exec_env.op_math!(double, math.trunc);
+          exec_env.op_math!(double, "trunc");
           continue;
       case F64_NEAREST:
-          exec_env.op_math!(double, math.rint);
+          exec_env.op_math!(double, "rint");
           continue;
       case F64_SQRT:
-          exec_env.op_math!(double, math.sqrt);
+          exec_env.op_math!(double, "sqrt");
           continue;
       case F64_ADD:
           exec_env.op_cat!(double, "/");
@@ -621,83 +614,84 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
           continue;
       /* conversions of i32 */
       case I32_WRAP_I64:
-          const value = exec_env.pop!int; //(int)(PI64() & 0xFFFFFFFFLL);
-          exec_env.push(value);
+          exec_env.op_wrap!(int, long);
+          // const value = exec_env.pop!int; //(int)(PI64() & 0xFFFFFFFFLL);
+          // exec_env.push(value);
           continue;
-      case I32_TRUNC_S_F32:
+      case I32_TRUNC_F32_S:
         /* We don't use INT_MIN/INT_MAX/UINT_MIN/UINT_MAX,
            since float/double values of ieee754 cannot precisely represent
            all int/uint/int64/uint64 values, e.g.:
            UINT_MAX is 4294967295, but (float32)4294967295 is 4294967296.0f,
            but not 4294967295.0f. */
-            op_trunc!(int, float, true);
+          if (exec_env.op_trunc!(int, float)) goto case ERROR;
+          continue;
+      case I32_TRUNC_F32_U:
+          if (exec_env.op_trunc!(uint, float)) goto case ERROR;
             continue;
-      case I32_TRUNC_U_F32:
-            op_trunc!(uint, float, true);
+      case I32_TRUNC_F64_S:
+          if (exec_env.op_trunc!(int, double)) goto case ERROR;
             continue;
-      case I32_TRUNC_S_F64:
-            op_trunc!(int, double, true);
-            continue;
-      case I32_TRUNC_U_F64:
-            op_trunc!(int, double, true);
+      case I32_TRUNC_F64_U:
+          if (exec_env.op_trunc!(int, double)) goto case ERROR;
             continue;
       /* conversions of i64 */
-      case I64_EXTEND_S_I32:
-            exec_env.op_convert!(long, int);
-            continue;
-      case I64_EXTEND_U_I32:
-            exec_env.op_convert!(long, uint);
-            continue;
-      case I64_TRUNC_S_F32:
-            op_trunc!(long, float, true);
-            continue;
-      case I64_TRUNC_U_F32:
-            op_trunc!(ulong, float, true);
-            continue;
-      case I64_TRUNC_S_F64:
-            op_trunc!(long, double, true);
-            continue;
-      case I64_TRUNC_U_F64:
-            op_trunc!(ulong, double, false);
-            continue;
+      case I64_EXTEND_I32_S:
+          exec_env.op_convert!(long, int);
+          continue;
+      case I64_EXTEND_I32_U:
+          exec_env.op_convert!(long, uint);
+          continue;
+      case I64_TRUNC_F32_S:
+          if (exec_env.op_trunc!(long, float)) goto case ERROR;
+          continue;
+      case I64_TRUNC_F32_U:
+          if (exec_env.op_trunc!(ulong, float)) goto case ERROR;
+          continue;
+      case I64_TRUNC_F64_S:
+          if (exec_env.op_trunc!(long, double)) goto case ERROR;
+          continue;
+      case I64_TRUNC_F64_U:
+          if (exec_env.op_trunc!(ulong, double)) goto case ERROR;
+          continue;
       /* conversions of f32 */
-      case F32_CONVERT_S_I32:
+      case F32_CONVERT_I32_S:
             exec_env.op_convert!(float, int);
             continue;
-      case F32_CONVERT_U_I32:
+      case F32_CONVERT_I32_U:
             exec_env.op_convert!(float, uint);
             continue;
-      case F32_CONVERT_S_I64:
+      case F32_CONVERT_I64_S:
             exec_env.op_convert!(float, long);
             continue;
-      case F32_CONVERT_U_I64:
+      case F32_CONVERT_I64_U:
             exec_env.op_convert!(float, ulong);
             continue;
       case F32_DEMOTE_F64:
             exec_env.op_convert!(float, double);
             continue;
       /* conversions of f64 */
-      case F64_CONVERT_S_I32:
+      case F64_CONVERT_I32_S:
             exec_env.op_convert!(double, int);
             continue;
-      case F64_CONVERT_U_I32:
+      case F64_CONVERT_I32_U:
             exec_env.op_convert!(double, uint);
             continue;
-      case F64_CONVERT_S_I64:
+      case F64_CONVERT_I64_S:
             exec_env.op_convert!(double, long);
             continue;
-      case F64_CONVERT_U_I64:
+      case F64_CONVERT_I64_U:
             exec_env.op_convert!(double, ulong);
             continue;
       case F64_PROMOTE_F32:
             exec_env.op_convert!(double, float);
             continue;
       /* reinterpretations */
-            case I32_REINTERPRET_F32,
-                I64_REINTERPRET_F64,
-                F32_REINTERPRET_I32,
-                F64_REINTERPRET_I64:
-                continue;
+        case I32_REINTERPRET_F32:
+        case I64_REINTERPRET_F64:
+        case F32_REINTERPRET_I32:
+        case F64_REINTERPRET_I64:
+            continue;
       case I32_EXTEND8_S:
             exec_env.op_convert!(int, byte);
             continue;
@@ -713,29 +707,29 @@ FETCH_LOOP: while(ip < mod_instance.frame.length) {
       case I64_EXTEND32_S:
             exec_env.op_convert!(long, int);
             continue;
-        case I32_TRUNC_SAT_S_F32:
-            if (op_trunc!(float, int, true)) goto case ERROR;
+        case I32_TRUNC_SAT_F32_S:
+            exec_env.op_trunc_sat!(int, float);
             continue;
-        case I32_TRUNC_SAT_U_F32:
-            if (op_trunc!(float, uint, true)) goto case ERROR;
+        case I32_TRUNC_SAT_F32_U:
+            exec_env.op_trunc_sat!(uint, float);
             continue;
-        case I32_TRUNC_SAT_S_F64:
-            if (op_trunc!(double, int, true)) goto case ERROR;
+        case I32_TRUNC_SAT_F64_S:
+            exec_env.op_trunc_sat!(int, double);
             continue;
-        case I32_TRUNC_SAT_U_F64:
-            if (op_trunc!(double, uint, true)) goto case ERROR;
+        case I32_TRUNC_SAT_F64_U:
+            exec_env.op_trunc_sat!(uint, double);
             continue;
-        case I64_TRUNC_SAT_S_F32:
-            if (op_trunc!(float, long, true)) goto case ERROR;
+        case I64_TRUNC_SAT_F32_S:
+            exec_env.op_trunc_sat!(long, float);
             continue;
-        case I64_TRUNC_SAT_U_F32:
-            if (op_trunc!(float, ulong, true)) goto case ERROR;
+        case I64_TRUNC_SAT_F32_U:
+            exec_env.op_trunc_sat!(ulong, float);
             continue;
-        case I64_TRUNC_SAT_S_F64:
-            if (op_trunc!(double, long, true)) goto case ERROR;
+        case I64_TRUNC_SAT_F64_S:
+            exec_env.op_trunc_sat!(long, double);
             continue;
-        case I64_TRUNC_SAT_U_F64:
-            if (op_trunc!(double, ulong, true)) goto case ERROR;
+        case I64_TRUNC_SAT_F64_U:
+            exec_env.op_trunc_sat!(ulong, double);
             continue;
       case ERROR:
 

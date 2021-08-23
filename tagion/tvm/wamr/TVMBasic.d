@@ -21,6 +21,7 @@ static unittest {
 }
 @safe @nogc
 union WasmType {
+    import std.format;
     @(Types.I32) int i32;
     @(Types.I64) long i64;
     @(Types.F32) float f32;
@@ -33,10 +34,18 @@ union WasmType {
         }
 
         void opAssign(const uint x) {
-            i32 = cast(uint)x;
+            i32 = x;
         }
         void opAssign(const ulong x) {
-            i64 = cast(long)x;
+            i64 = x;
+        }
+
+        void opAssign(const float x) {
+            f32 = x;
+        }
+
+        void opAssign(const double x) {
+            f64 = x;
         }
 
         void opOpAssign(string op, T)(const T x) if(isOneOf!(T, WasmT)) {
@@ -53,7 +62,7 @@ union WasmType {
                 alias U=long;
             }
             enum index=staticIndexOf!(U, WasmT);
-            enum code=format(q{this.tupleof[index] %s= cast(U)x;}, op);
+            enum code=format!q{this.tupleof[index] %s= cast(U)x;}(op);
             mixin(code);
         }
 
@@ -68,12 +77,12 @@ union WasmType {
             // }
 
 
-        T get(T)() if (isOneOf!(T, WasmT)) {
+        const(T) get(T)() const pure nothrow if (isOneOf!(T, WasmT)) {
             enum index=staticIndexOf!(T, WasmT);
             return this.tupleof[index];
         }
 
-        T get(T)() if (isIntegral!T && !isOneOf!(T, WasmT)) {
+        const(T) get(T)() const pure  nothrow if (isIntegral!T && !isOneOf!(T, WasmT)) {
             static if (T.sizeof <= int.sizeof) {
                 return cast(T)i32;
             }
@@ -89,7 +98,7 @@ struct FunctionInstance {
     union {
         struct {
             uint ip;     // Bincode instruction pointer
-            ushort local_count;     /// local variable count, 0 for import function
+            ushort local_size;     /// local variable count, 0 for import function
         }
 
     }
@@ -105,7 +114,9 @@ struct FunctionInstance {
     /* whether it is import function or WASM function */
     bool is_import_func;     /// whether it is import function or WASM function
 
-
+    bool isLocalFunc() pure const nothrow {
+        return !is_import_func;
+    }
     version(none) {
     version(WASM_ENABLE_FAST_INTERP) {
     /* cell num of consts */
