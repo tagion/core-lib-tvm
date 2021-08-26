@@ -1,6 +1,6 @@
-module tagion.tvm.wamr.TVMLoader;
+module tagion.tvm.TVMLoader;
 
-import tagion.tvm.wamr.TVMBasic : FunctionInstance;
+import tagion.tvm.TVMBasic : FunctionInstance;
 import tagion.wasm.WasmException;
 import tagion.basic.Basic : doFront;
 import std.bitmanip : binpeek = peek, binwrite = write;
@@ -16,7 +16,7 @@ import LEB128 = tagion.utils.LEB128;
 import std.outbuffer;
 
 @safe class TVMBuffer : OutBuffer {
-    import tagion.tvm.wamr.TVMExtOpcode : ExtendedIR;
+    import tagion.tvm.TVMExtOpcode : ExtendedIR;
     import tagion.wasm.WasmBase : WasmArg, Types;
 
     pure nothrow {
@@ -108,7 +108,7 @@ import std.outbuffer;
 @safe struct ModuleInstance {
     import tagion.wasm.WasmReader;
     import tagion.wasm.WasmBase : Section, ExprRange, IRType, IR, instrTable, IndexType, Types;
-    import tagion.tvm.wamr.TVMExtOpcode : ExtendedIR, convert;
+    import tagion.tvm.TVMExtOpcode : ExtendedIR, convert;
 
     // import std.array : appender, RefAppender;
     // import std.bitmanip;

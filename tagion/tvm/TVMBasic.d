@@ -1,4 +1,4 @@
-module tagion.tvm.wamr.TVMBasic;
+module tagion.tvm.TVMBasic;
 
 import tagion.wasm.WasmBase : Types; //, Section, ExprRange, IR, IRType, instrTable, WasmArg;
 import std.meta : AliasSeq, anySatisfy, ApplyLeft, staticIndexOf;
@@ -81,7 +81,7 @@ static unittest {
             return this.tupleof[index];
         }
 
-        const(T) get(T)() const pure nothrow 
+        const(T) get(T)() const pure nothrow
                 if (isIntegral!T && !isOneOf!(T, WasmT)) {
             static if (T.sizeof <= int.sizeof) {
                 return cast(T) i32;

@@ -1,12 +1,12 @@
-module tagion.tvm.wamr.TVMExecuter;
+module tagion.tvm.TVMExecuter;
 
 import std.stdio;
 
-import tagion.tvm.wamr.wasm;
-import tagion.tvm.wamr.TVMExtOpcode;
-import tagion.tvm.wamr.TVMBasic : FunctionInstance;
-import tagion.tvm.wamr.TVMLoader : ModuleInstance;
-import tagion.tvm.wamr.TVMContext : TVMError, TVMContext;
+//import tagion.tvm.wasm;
+import tagion.tvm.TVMExtOpcode;
+import tagion.tvm.TVMBasic : FunctionInstance;
+import tagion.tvm.TVMLoader : ModuleInstance;
+import tagion.tvm.TVMContext : TVMError, TVMContext;
 import std.traits : isIntegral, isFloatingPoint, isNumeric;
 import LEB128 = tagion.utils.LEB128;
 import std.bitmanip : binpeek = peek;

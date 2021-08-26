@@ -1,4 +1,4 @@
-module tagion.tvm.wamr.TVMContext;
+module tagion.tvm.TVMContext;
 
 enum TVMError {
     NONE,
@@ -11,8 +11,8 @@ enum TVMError {
 }
 /* Execution environment */
 @safe @nogc struct TVMContext {
-    import tagion.tvm.wamr.TVMBasic : WasmType, WasmTypes, isWasmType;
-    import tagion.tvm.wamr.TVMLoader : ModuleInstance;
+    import tagion.tvm.TVMBasic : WasmType, WasmTypes, isWasmType;
+    import tagion.tvm.TVMLoader : ModuleInstance;
     import tagion.basic.Basic : isOneOf;
     import core.exception : RangeError, onRangeError;
     import std.meta : allSatisfy;

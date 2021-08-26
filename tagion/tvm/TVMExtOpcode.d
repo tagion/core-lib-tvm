@@ -1,4 +1,4 @@
-module tagion.tvm.wamr.TVMExtOpcode;
+module tagion.tvm.TVMExtOpcode;
 
 import WasmBase = tagion.wasm.WasmBase;
 import std.algorithm.searching : canFind;
