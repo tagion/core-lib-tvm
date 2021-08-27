@@ -12,7 +12,7 @@ enum TVMError {
 /* Execution environment */
 @safe @nogc struct TVMContext {
     import tagion.tvm.TVMBasic : WasmType, WasmTypes, isWasmType;
-    import tagion.tvm.TVMLoader : ModuleInstance;
+    import tagion.tvm.TVMLoader : TVMModules;
     import tagion.basic.Basic : isOneOf;
     import core.exception : RangeError, onRangeError;
     import std.meta : allSatisfy;
@@ -30,7 +30,7 @@ enum TVMError {
         return false;
     }
 
-    bool enlarge_memory(ref const(ModuleInstance) mod_instance, const uint delta) pure nothrow {
+    bool enlarge_memory(ref const(TVMModules.ModuleInstance) mod_instance, const uint delta) pure nothrow {
         return false;
     }
 

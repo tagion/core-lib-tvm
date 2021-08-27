@@ -5,7 +5,7 @@ import std.stdio;
 //import tagion.tvm.wasm;
 import tagion.tvm.TVMExtOpcode;
 import tagion.tvm.TVMBasic : FunctionInstance;
-import tagion.tvm.TVMLoader : ModuleInstance;
+import tagion.tvm.TVMLoader : TVMModules;
 import tagion.tvm.TVMContext : TVMError, TVMContext;
 import std.traits : isIntegral, isFloatingPoint, isNumeric;
 import LEB128 = tagion.utils.LEB128;
@@ -14,7 +14,7 @@ import core.exception : RangeError;
 
 struct TVMExecuter {
     bool unwined;
-    void bytecode_call(ref const(ModuleInstance) mod_instance, ref TVMContext ctx) {
+    void bytecode_call(ref const(TVMModules.ModuleInstance) mod_instance, ref TVMContext ctx) {
         scope (exit) {
             if (unwined) {
                 // Do some unwineding
@@ -718,7 +718,7 @@ struct TVMExecuter {
                             ctx.op_trunc_sat!(ulong, double);
                             continue;
                         case ERROR:
-
+                            unwined = true;
                         }
                     }
                 }
@@ -734,6 +734,7 @@ struct TVMExecuter {
                     // else {
                     ctx.error = TVMError.STACK_OVERFLOW;
                 }
+                unwined =true;
             }
         }
     }

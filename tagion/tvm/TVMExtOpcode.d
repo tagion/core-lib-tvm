@@ -5,10 +5,10 @@ import std.algorithm.searching : canFind;
 import std.format;
 import std.array : join;
 import std.traits : EnumMembers;
-
+import std.conv : to;
 protected {
     enum ExtraIR : ubyte {
-        ERROR = WasmBase.IR.F64_REINTERPRET_I64 + 1, /// Extra jump label to handle errors
+        ERROR = WasmBase.IR.I64_EXTEND32_S + 1, /// Extra jump label to handle errors
         EXTRA_BR, /// This branch jump is used internal buy the interpreter
         EXTERNAL_CALL, /// Call an external function from the import list
         I32_TRUNC_SAT_F32_S,
@@ -53,7 +53,7 @@ protected string generateExtendedIR(string enum_name)() {
 }
 
 // pragma(msg, generateExtendedIR);
-//pragma(msg, generateExtendedIR!q{ExtendedIR});
+pragma(msg, generateExtendedIR!q{ExtendedIR});
 mixin(generateExtendedIR!q{ExtendedIR});
 
 version (COMPACT_EXTENDED_IR) {
@@ -91,8 +91,10 @@ WasmBase.IR convert(const ExtendedIR ir) @safe pure nothrow {
         return cast(WasmBase.IR) ExtendedIRToIR[ir];
     }
     else {
+        pragma(msg, "Array ", [EnumMembers!(ExtendedIR)]);
         switch (ir) {
             static foreach (E; EnumMembers!(ExtendedIR)) {
+                pragma(msg, "E ", E, " ", E.to!ubyte);
         case E:
                 return cast(WasmBase.IR) ir;
             }
@@ -121,10 +123,10 @@ ExtendedIR convert(const WasmBase.IR ir) @safe pure nothrow {
         switch (ir) {
             static foreach (E; EnumMembers!(ExtraIR)) {
         case E:
-                return cast(WasmBase.IR) ubyte.max;
+                return cast(ExtendedIR) ubyte.max;
             }
         default:
-            return cast(WasmBase.IR) ir;
+            return cast(ExtendedIR) ir;
         }
     }
 

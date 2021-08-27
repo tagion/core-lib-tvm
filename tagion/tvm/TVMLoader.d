@@ -1,5 +1,7 @@
 module tagion.tvm.TVMLoader;
 
+import tagion.wasm.WasmReader : WasmReader;
+
 import tagion.tvm.TVMBasic : FunctionInstance;
 import tagion.wasm.WasmException;
 import tagion.basic.Basic : doFront;
@@ -105,6 +107,34 @@ import std.outbuffer;
 
 }
 
+
+@safe struct TVMModules {
+    private {
+        WasmReader[string] readers;
+    }
+
+    bool add(string mod_name, immutable(ubyte[]) wasm) pure nothrow {
+        readers[mod_name] = WasmReader(wasm);
+        return false;
+    }
+
+    @nogc
+    const(WasmReader[string]) modules() const pure nothrow {
+        return readers;
+    }
+
+    void declare(F)(string symbol, F func) pure nothrow if (isFunctionPointer!F) {
+
+    }
+    void declare(alias func)(void* attachment = null) nothrow if (isCallable!func) {
+
+    }
+    void build() pure {
+    }
+
+
+
+
 @safe struct ModuleInstance {
     import tagion.wasm.WasmReader;
     import tagion.wasm.WasmBase : Section, ExprRange, IRType, IR, instrTable, IndexType, Types;
@@ -118,22 +148,27 @@ import std.outbuffer;
     alias ExportType = WasmSection.ExportType;
     alias FuncType = WasmSection.FuncType;
     immutable(ubyte[]) frame;
+    const(string) name;
     // immutable(ImportType[]) imports_sec;
     // immutable(ExportType[]) exports_sec;
     //    immutable(FuncType[]) funcs_sec;
     immutable(FunctionInstance[]) funcs_table;
+
+    /+
     struct IndirectCallTable {
         ubyte internal_func_offset;
         ImportType* external_func; // If this null the funcion is internal
     }
 
     immutable(IndirectCallTable[]) indirect_call_tabel; // Only created if the indicrect_call instruction is used
+    +/
     //    const(WasmReader) reader;
     const(Sections) sections;
-    this(const(WasmReader) reader) @trusted {
-        //        this.reader = reader;
-        pragma(msg, EnumMembers!Section[]);
-        pragma(msg, Sections);
+    this(const(WasmReader) reader, string mod_name) {
+        this.name = name;
+        //this.reader = reader;
+        // pragma(msg, EnumMembers!Section[]);
+        // pragma(msg, Sections);
         (() @trusted {
             foreach (sec, read_section; lockstep([EnumMembers!Section], reader[])) {
             SectionSwitch:
@@ -146,41 +181,14 @@ import std.outbuffer;
                 }
             }
         })();
-        // Create fast lookup tables for the some of the sections
-        pragma(msg, "map ", typeof(sections[Section.IMPORT][]));
-        pragma(msg, "front ", typeof(sections[Section.IMPORT][].front));
-        // pragma(msg, "&front ", typeof(&(sections[Section.IMPORT][].front())
-        //         ));
-        pragma(msg, "array ", typeof(sections[Section.FUNCTION][].array));
-        // pragma(msg, "array ", typeof(sections[Section.IMPORT][].map!((ref a) => &a).array)
-        //         );
-
-        //imports_sec = sections[Section.IMPORT][].array;
-        //     .map!((ref a) => &a)
-        //     .array;
-        //exports_sec = sections[Section.EXPORT][].array;
-        //     .map!((ref a) => &a)
-        //     .array;
-        //funcs_sec = sections[Section.FUNC][].array;
-        // .map!((ref a) => &a)
-        //      .array;
         FunctionInstance[] _funcs_table;
         _funcs_table.length = _funcs_table.length;
 
-        //        funcs_table.length
-        // import std.outbuffer;
-        //         scope bout = new OutBuffer(reader.serialize.length);
-
-        // //    }
-        //         scope bout = appender!(ubyte[]);
-        //         appender.reserve = reader.serialize.length;
-        //        scope LoadReport report;
-        // const result = load(reader);
-        // frame = result.frame;
-
         frame = load(reader, _funcs_table);
 
-        funcs_table = assumeUnique(_funcs_table);
+        funcs_table = (() @trusted {
+                return assumeUnique(_funcs_table);
+        })();
     }
 
     private immutable(ubyte[]) load(const(WasmReader) reader, ref FunctionInstance[] _funcs_table) {
@@ -368,4 +376,5 @@ import std.outbuffer;
         return frame.idup;
     }
 
+}
 }

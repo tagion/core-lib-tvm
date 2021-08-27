@@ -81,7 +81,7 @@ static unittest {
             return this.tupleof[index];
         }
 
-        const(T) get(T)() const pure nothrow 
+        const(T) get(T)() const pure nothrow
                 if (isIntegral!T && !isOneOf!(T, WasmT)) {
             static if (T.sizeof <= int.sizeof) {
                 return cast(T) i32;
@@ -94,6 +94,7 @@ static unittest {
 }
 
 @nogc @safe struct FunctionInstance {
+//    enum Function
     union {
         struct {
             uint ip; // Bincode instruction pointer
