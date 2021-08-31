@@ -89,7 +89,7 @@ struct TVMExecuter {
 
                     import std.math;
 
-                    with (ExtendedIR) {
+                    with (InternalIR) {
                         final switch (opcode) {
                         case UNREACHABLE:
                             ctx.set_exception(ip, "unreachable");

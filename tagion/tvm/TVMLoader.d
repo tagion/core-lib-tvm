@@ -18,7 +18,7 @@ import LEB128 = tagion.utils.LEB128;
 import std.outbuffer;
 
 @safe class TVMBuffer : OutBuffer {
-    import tagion.tvm.TVMExtOpcode : ExtendedIR;
+    import tagion.tvm.TVMExtOpcode : InternalIR;
     import tagion.wasm.WasmBase : WasmArg, Types;
 
     pure nothrow {
@@ -168,7 +168,7 @@ import std.outbuffer;
         import tagion.wasm.WasmReader;
         import tagion.wasm.WasmBase : Section, ExprRange, IRType, IR,
             instrTable, IndexType, Types;
-        import tagion.tvm.TVMExtOpcode : ExtendedIR, convert;
+        import tagion.tvm.TVMExtOpcode : InternalIR, convert;
 
         // import std.array : appender, RefAppender;
         // import std.bitmanip;
@@ -254,7 +254,7 @@ import std.outbuffer;
                                 labels ~= global_offset;
                                 const end_elm = expand_block(level + 1, global_offset);
                                 if (elm.code is IR.IF) {
-                                    bout(ExtendedIR.BR_IF); // IF instruction
+                                    bout(InternalIR.BR_IF); // IF instruction
 
                                     //bout.write(cast(uint)(labels.length)); // Labelidx number to else
                                     const else_offset = global_offset + uint.sizeof + cast(
@@ -266,7 +266,7 @@ import std.outbuffer;
                                     if (end_elm.code is IR.ELSE) {
                                         const endif_elm = expand_block(level + 1, global_offset);
                                         // Branch to endif
-                                        bout(ExtendedIR.EXTRA_BR);
+                                        bout(InternalIR.EXTRA_BR);
                                         const endif_offset = global_offset + uint.sizeof + cast(
                                                 uint) bouts[level + 1].offset;
                                         bout(endif_offset);
@@ -274,7 +274,7 @@ import std.outbuffer;
                                     }
                                 }
                                 else if (elm.code is IR.LOOP) {
-                                    bout(ExtendedIR.BR, cast(uint)(labels.length - 1));
+                                    bout(InternalIR.BR, cast(uint)(labels.length - 1));
                                 }
                                 // else Simple End
                                 break;
@@ -308,7 +308,7 @@ import std.outbuffer;
                                     //bout.write(elm.warg.get!uint);
                                 }
                                 else {
-                                    bout(ExtendedIR.EXTERNAL_CALL, LEB128.encode(importidx));
+                                    bout(InternalIR.EXTERNAL_CALL, LEB128.encode(importidx));
                                     // The funcidx is now convert in to index of the import tabel
                                     //bout.write(LEB128.encode(importidx));
                                 }

@@ -26,7 +26,7 @@ protected {
     }
 }
 
-protected string generateExtendedIR(string enum_name)() {
+protected string generateInternalIR(string enum_name)() {
     string[] codes;
     codes ~= format!`enum %s : ubyte {`(enum_name);
     import tagion.wasm.WasmBase : IR;
@@ -55,14 +55,14 @@ protected string generateExtendedIR(string enum_name)() {
     return codes.join("\n");
 }
 
-// pragma(msg, generateExtendedIR);
-//pragma(msg, generateExtendedIR!q{ExtendedIR});
-mixin(generateExtendedIR!q{ExtendedIR});
+// pragma(msg, generateInternalIR);
+//pragma(msg, generateInternalIR!q{InternalIR});
+mixin(generateInternalIR!q{InternalIR});
 
-pragma(msg, [EnumMembers!ExtendedIR]);
+pragma(msg, [EnumMembers!InternalIR]);
 
 version (COMPACT_EXTENDED_IR) {
-    protected ubyte[ubyte.max + 1] generateExtendedIRToIR() {
+    protected ubyte[ubyte.max + 1] generateInternalIRToIR() {
         ubyte[ubyte.max + 1] table = ubyte.max;
 
         foreach (i, E; [EnumMembers!(WasmBase.IR)]) {
@@ -71,34 +71,34 @@ version (COMPACT_EXTENDED_IR) {
         return table;
     }
 
-    protected ubyte[ubyte.max + 1] generateIRToExtendedIR() {
+    protected ubyte[ubyte.max + 1] generateIRToInternalIR() {
         ubyte[ubyte.max + 1] table = ubyte.max;
 
-        foreach (i, E; [EnumMembers!(ExtendedIR)]) {
+        foreach (i, E; [EnumMembers!(InternalIR)]) {
             table[i] = cast(ubyte) E;
         }
         return table;
     }
 
-    enum ExtendedIRToIR = generateExtendedIRToIR;
-    enum IRToExtendedIR = generateIRToExtendedIR;
+    enum InternalIRToIR = generateInternalIRToIR;
+    enum IRToInternalIR = generateIRToInternalIR;
 }
 
-bool isPrefixIR(const ExtendedIR ir) pure nothrow @safe {
-    return (ir >= ExtendedIR.I32_TRUNC_SAT_F32_S && ir <= ExtendedIR.I64_TRUNC_SAT_F64_U);
+bool isPrefixIR(const InternalIR ir) pure nothrow @safe {
+    return (ir >= InternalIR.I32_TRUNC_SAT_F32_S && ir <= InternalIR.I64_TRUNC_SAT_F64_U);
 }
 
-WasmBase.IR convert(const ExtendedIR ir) @safe pure nothrow {
+WasmBase.IR convert(const InternalIR ir) @safe pure nothrow {
     version (COMPACT_EXTENDED_IR) {
         if (isPrefixIR(ir)) {
             return cast(WasmBase.IR) ubyte.max;
         }
-        return cast(WasmBase.IR) ExtendedIRToIR[ir];
+        return cast(WasmBase.IR) InternalIRToIR[ir];
     }
     else {
-//        pragma(msg, "Array ", [EnumMembers!(ExtendedIR)]);
+//        pragma(msg, "Array ", [EnumMembers!(InternalIR)]);
         switch (ir) {
-            static foreach (E; EnumMembers!(ExtendedIR)) {
+            static foreach (E; EnumMembers!(InternalIR)) {
 //                pragma(msg, "E ", E, " ", E.to!ubyte);
         case E:
             static if (isWasmIR!E) {
@@ -117,65 +117,65 @@ WasmBase.IR convert(const ExtendedIR ir) @safe pure nothrow {
 
 @safe
 static unittest {
-    static assert(ExtendedIR.BR_IF.convert is WasmBase.IR.BR_IF);
+    static assert(InternalIR.BR_IF.convert is WasmBase.IR.BR_IF);
     version(COMPACT_EXTENDED_IR) {
         pragma(msg, "COMPACT_EXTENDED_IR");
     }
     else {
         pragma(msg, "NOT!!! COMPACT_EXTENDED_IR");
     }
-    pragma(msg, ExtendedIR.ERROR.convert);
-    static assert(ExtendedIR.ERROR.convert is cast(WasmBase.IR) ubyte.max);
+    pragma(msg, InternalIR.ERROR.convert);
+    static assert(InternalIR.ERROR.convert is cast(WasmBase.IR) ubyte.max);
 }
 
-ExtendedIR convert(const WasmBase.IR ir) @safe pure nothrow {
+InternalIR convert(const WasmBase.IR ir) @safe pure nothrow {
     version (COMPACT_EXTENDED_IR) {
         if (ir is WasmBase.IR.TRUNC_SAT) {
-            return ExtendedIR.ERROR; // TRUNC_SAT is a IR with prefix
+            return InternalIR.ERROR; // TRUNC_SAT is a IR with prefix
         }
         else {
-            return cast(ExtendedIR) IRToExtendedIR[ir];
+            return cast(InternalIR) IRToInternalIR[ir];
         }
     }
     else {
         switch (ir) {
             static foreach (E; EnumMembers!(ExtraIR)) {
         case E:
-                return cast(ExtendedIR) ubyte.max;
+                return cast(InternalIR) ubyte.max;
             }
         default:
-            return cast(ExtendedIR) ir;
+            return cast(InternalIR) ir;
         }
     }
 
 }
 
-ExtendedIR convert(const WasmBase.IR ir, const ubyte suffix_ir) @safe pure nothrow {
+InternalIR convert(const WasmBase.IR ir, const ubyte suffix_ir) @safe pure nothrow {
     if (ir is WasmBase.IR.TRUNC_SAT) {
         if (suffix_ir < EnumMembers!(WasmBase.IR_TRUNC_SAT).length) {
-            return cast(ExtendedIR)(ExtendedIR.I32_TRUNC_SAT_F32_S + suffix_ir);
+            return cast(InternalIR)(InternalIR.I32_TRUNC_SAT_F32_S + suffix_ir);
         }
-        return ExtendedIR.ERROR;
+        return InternalIR.ERROR;
     }
     return convert(ir);
 }
 
 @safe unittest {
-    assert(WasmBase.IR.BR_IF.convert is ExtendedIR.BR_IF);
-    assert(cast(WasmBase.IR)(ExtendedIR.ERROR).convert is cast(ExtendedIR)(ubyte.max));
+    assert(WasmBase.IR.BR_IF.convert is InternalIR.BR_IF);
+    assert(cast(WasmBase.IR)(InternalIR.ERROR).convert is cast(InternalIR)(ubyte.max));
 }
 
-alias isWasmIR(ExtendedIR ir) = hasMember!(WasmBase.IR, basename!(ir));
+alias isWasmIR(InternalIR ir) = hasMember!(WasmBase.IR, basename!(ir));
 
 static unittest {
-    static assert(isWasmIR!(ExtendedIR.BR_IF));
-    static assert(!isWasmIR!(ExtendedIR.ERROR));
+    static assert(isWasmIR!(InternalIR.BR_IF));
+    static assert(!isWasmIR!(InternalIR.ERROR));
 }
 
-shared static immutable(WasmBase.Instr[ExtendedIR]) instrExtTable;
+shared static immutable(WasmBase.Instr[InternalIR]) instrExtTable;
 
 shared static this() {
-    foreach (ExtIR; EnumMembers!ExtendedIR) {
+    foreach (ExtIR; EnumMembers!InternalIR) {
         auto instr = ExtIR.convert in WasmBase.instrTable;
         if (instr) {
             instrExtTable[ExtIR] = *instr;
