@@ -1,7 +1,7 @@
 module tagion.tvm.TVMBasic;
 
 import tagion.wasm.WasmBase : Types; //, Section, ExprRange, IR, IRType, instrTable, WasmArg;
-import std.meta : AliasSeq, anySatisfy, ApplyLeft, staticIndexOf;
+import std.meta : AliasSeq, allSatisfy, anySatisfy, ApplyLeft, staticIndexOf;
 import std.traits : isIntegral, Unqual;
 import tagion.basic.Basic : isOneOf, isEqual;
 
@@ -15,8 +15,8 @@ enum isWasmType(T) = anySatisfy!(ApplyLeft!(isEqual, Unqual!T), WasmTypes);
 static unittest {
     static assert(isWasmType!uint);
     static assert(isWasmType!(const(uint)));
-    static assert(!isWasmType!WasmType);
-    static assert(isWasmType!string);
+    static assert(isWasmType!WasmType);
+    static assert(!isWasmType!string);
     static assert(allSatisfy!(isWasmType, double, int, ubyte));
 }
 

@@ -1,11 +1,14 @@
 module tagion.tvm.TVMExtOpcode;
 
+import tagion.basic.Basic : basename;
 import WasmBase = tagion.wasm.WasmBase;
 import std.algorithm.searching : canFind;
 import std.format;
 import std.array : join;
 import std.traits : EnumMembers;
 import std.conv : to;
+import std.traits : hasMember;
+
 protected {
     enum ExtraIR : ubyte {
         ERROR = WasmBase.IR.I64_EXTEND32_S + 1, /// Extra jump label to handle errors
@@ -53,8 +56,10 @@ protected string generateExtendedIR(string enum_name)() {
 }
 
 // pragma(msg, generateExtendedIR);
-pragma(msg, generateExtendedIR!q{ExtendedIR});
+//pragma(msg, generateExtendedIR!q{ExtendedIR});
 mixin(generateExtendedIR!q{ExtendedIR});
+
+pragma(msg, [EnumMembers!ExtendedIR]);
 
 version (COMPACT_EXTENDED_IR) {
     protected ubyte[ubyte.max + 1] generateExtendedIRToIR() {
@@ -91,12 +96,17 @@ WasmBase.IR convert(const ExtendedIR ir) @safe pure nothrow {
         return cast(WasmBase.IR) ExtendedIRToIR[ir];
     }
     else {
-        pragma(msg, "Array ", [EnumMembers!(ExtendedIR)]);
+//        pragma(msg, "Array ", [EnumMembers!(ExtendedIR)]);
         switch (ir) {
             static foreach (E; EnumMembers!(ExtendedIR)) {
-                pragma(msg, "E ", E, " ", E.to!ubyte);
+//                pragma(msg, "E ", E, " ", E.to!ubyte);
         case E:
+            static if (isWasmIR!E) {
                 return cast(WasmBase.IR) ir;
+            }
+            else {
+                goto default;
+            }
             }
         default:
             return cast(WasmBase.IR) ubyte.max;
@@ -105,9 +115,17 @@ WasmBase.IR convert(const ExtendedIR ir) @safe pure nothrow {
 
 }
 
-@safe unittest {
-    assert(Extended.IF.convert is WasmBase.IR.IF);
-    assert(Extended.ERROR is cast(WasmBase.IR) ubyte.max);
+@safe
+static unittest {
+    static assert(ExtendedIR.BR_IF.convert is WasmBase.IR.BR_IF);
+    version(COMPACT_EXTENDED_IR) {
+        pragma(msg, "COMPACT_EXTENDED_IR");
+    }
+    else {
+        pragma(msg, "NOT!!! COMPACT_EXTENDED_IR");
+    }
+    pragma(msg, ExtendedIR.ERROR.convert);
+    static assert(ExtendedIR.ERROR.convert is cast(WasmBase.IR) ubyte.max);
 }
 
 ExtendedIR convert(const WasmBase.IR ir) @safe pure nothrow {
@@ -143,14 +161,14 @@ ExtendedIR convert(const WasmBase.IR ir, const ubyte suffix_ir) @safe pure nothr
 }
 
 @safe unittest {
-    assert(WasmBase.IR.IF.convert is ExtendedIR.IF);
+    assert(WasmBase.IR.BR_IF.convert is ExtendedIR.BR_IF);
     assert(cast(WasmBase.IR)(ExtendedIR.ERROR).convert is cast(ExtendedIR)(ubyte.max));
 }
 
-alias isWasmIR(ExtendedIR ir) = hasMember!(WasmBase.IR, ir.stringof);
+alias isWasmIR(ExtendedIR ir) = hasMember!(WasmBase.IR, basename!(ir));
 
 static unittest {
-    static assert(isWasmIR!(ExtendedIR.IF));
+    static assert(isWasmIR!(ExtendedIR.BR_IF));
     static assert(!isWasmIR!(ExtendedIR.ERROR));
 }
 
