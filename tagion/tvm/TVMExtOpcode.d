@@ -12,7 +12,7 @@ import std.traits : hasMember;
 protected {
     enum ExtraIR : ubyte {
         ERROR = WasmBase.IR.I64_EXTEND32_S + 1, /// Extra jump label to handle errors
-        EXTRA_BR, /// This branch jump is used internal buy the interpreter
+        EXTRA_BR, /// This branch jump is used internal by the interpreter
         EXTERNAL_CALL, /// Call an external function from the import list
         I32_TRUNC_SAT_F32_S,
         I32_TRUNC_SAT_F32_U,
@@ -59,7 +59,7 @@ protected string generateInternalIR(string enum_name)() {
 //pragma(msg, generateInternalIR!q{InternalIR});
 mixin(generateInternalIR!q{InternalIR});
 
-pragma(msg, [EnumMembers!InternalIR]);
+//pragma(msg, [EnumMembers!InternalIR]);
 
 version (COMPACT_EXTENDED_IR) {
     protected ubyte[ubyte.max + 1] generateInternalIRToIR() {

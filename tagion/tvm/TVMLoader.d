@@ -8,15 +8,18 @@ import tagion.basic.Basic : doFront;
 import std.bitmanip : binpeek = peek, binwrite = write;
 import std.range : lockstep, enumerate, StoppingPolicy;
 import std.exception : assumeUnique;
-import std.traits : EnumMembers, isBasicType;
+import std.traits : EnumMembers, isBasicType, isCallable, ParameterTypeTuple, ReturnType, FieldNameTuple;
 import std.algorithm.iteration : map, filter;
 import std.range.primitives : walkLength;
-import std.array : array;
+import std.array : array, join;
 import std.format;
+//import std.typecons.Tuple : fieldNames;
 
 import LEB128 = tagion.utils.LEB128;
 import std.outbuffer;
 
+struct Function {
+}
 @safe class TVMBuffer : OutBuffer {
     import tagion.tvm.TVMExtOpcode : InternalIR;
     import tagion.wasm.WasmBase : WasmArg, Types;
@@ -108,6 +111,12 @@ import std.outbuffer;
 }
 
 @safe struct TVMModules {
+    alias Sections = WasmReader.Sections;
+    alias WasmSection = WasmReader.WasmRange.WasmSection;
+    alias ImportType = WasmSection.ImportType;
+    alias ExportType = WasmSection.ExportType;
+    alias Export = WasmSection.Export;
+    alias FuncType = WasmSection.FuncType;
     struct Module {
         WasmReader reader;
         ModuleInstance instance;
@@ -147,22 +156,121 @@ import std.outbuffer;
     void build() pure {
     }
 
-    Function lookup(alias F)(string mod_name, string func_name) if (isCallable!F) {
-        auto mod = Modules[mod_name];
+    template lookup(alias F) if (isCallable!F) {
+        import tagion.tvm.TVMContext;
+        //alias Func = typeof(F);
+    auto lookup(string mod_name, string func_name) {
+        Module mod;
+//        auto mod = modules[mod_name];
         alias Params=ParameterTypeTuple!F;
+        enum ParamNames = [ParameterIdentifierTuple!foo];
         alias Returns=ReturnType!F;
+//        enum func_name = "_inner_func";
+        enum param_prefix ="param_";
+        enum context_name ="ctx";
+//        const func_index = get_number;
+        int func_idx;
         string generate_func() {
+//            string[] codes;
+//            codes ~= format!q{%s inner_%s(ref TVMContext cxt,}
+//            return Params.stringof;
+//            pragma(msg, F.stringof);
+//            pragma(msg, Params);
+//            pragma(msg, FieldNameTuple!Params);
+            string[] func_body;
+            string[] params;
+            params ~= format!"ref TVMContext %s"(context_name);
             static foreach(i, P; Params) {
-
+                static if (ParamNames[i].length) {
+                    enum param_name = ParamNames[i];
+                }
+                else {
+                    enum param_name = format!`%s%d`(param_prefix, i);
+                }
+                params ~= format!`%s %s`(P.stringof, param_name);
+            // }
+            // string[] func_body;
+            // static foreach(i, P; Params) {
+                func_body ~= format!q{
+                    //static if (isWasmParam!%1$s) {
+                    ctx.push(%2$s);
+                    //}
+                }(P.stringof, param_name);
             }
+            const result = format!q{
+                %1$s _inner_func(%2$s) {
+                    import std.stdio;
+                    %3$s
+                    writeln("func_idx", func_idx);
+                    return ctx.pop!%1$s;
+                }
+            }(
+                Returns.stringof,
+                params.join(", "),
+                func_body.join("\n"),
+                );
+            return result;
+
+            //codes ~=
+//            return params.join(", ");
+//            return func_body.join("\n");
         }
+        enum code = generate_func;
+        pragma(msg, "CODE=", code);
+        mixin(code);
+        void check_func_type() {
+            alias TVMFunction = typeof(_inner_func);
+            alias TVMParams = ParameterTupleType!TVMFunction;
+            alias TVMReturns = ReturnType!TVMFunction;
+            //auto range = mod.reader[];
+            auto export_sec = mod.reader.get!(Section.EXPORT);
+            foreach(export_type; export_sec[]) {
+                if (func_name == export_type.name) {
+                    check(export_type.desc is IndexType.FUNC,
+                        format("The export %s is in module %s not a function type but a %s type", func_name, mod_name, export_type.desc));
+                    const type_sec = mod.reader.get!(Section.TYPE);
+                    const func_type = type_sec[export_sec.idx];
+                    static if (is(TMVReturns == void)) {
+                        check(func_type.results.length is 0,
+                            format("Return type of %s in module %s is wrong got %s expected %s",
+                    }
+                    else {
+                    }
+                    //auto type_range = type[];
+                    //uint count;
+                    check(func_type.params.length != TVMParams.length,
+                        format!"Number of arguments in the TVM_%s function in module %s does not match got %d expected %d"(func_name, mod_name, func_type.params.length, TVMParams.length));
 
+                    static foreach(i, P; TVMParams) {
+                        enum WasmType = toWasmType!T;
+                        static assert(WasmType !is Types.EMPTY,
+                            format!"Parameter %d Type %s is not a valid Wasm type"(i, T.stringof));
+
+                        check(func_type.params[i] is WasmType,
+                                format!"Parameter number %d in func TVM_%s doest not match in module %s got %s expected %s"
+                                (i, func_name, mod_name, func_type.params[i], WasmType));
+
+                    }
+                    }
+            }
+
+            check(0, format("Function %s is not found in module %s",
+                    func_name, mod_name));
+        }
+            check_func_type;
+        // int get_number() {
+        //     return 42;
+//        }
+//        pragma(msg, typeof(&_inner_func));
+//        pragma(msg, typeof(F));
+
+        return &_inner_func;
     }
 
-    Function lookup(alias Func)(string mod_name) if (isCallable!Func) {
-        return lookup!Func(mod_name, Func.mangleof);
+    auto lookup(string mod_name) {
+        return lookup!F(mod_name, F.mangleof);
     }
-
+    }
 
     @safe struct ModuleInstance {
         import tagion.wasm.WasmReader;
@@ -172,11 +280,6 @@ import std.outbuffer;
 
         // import std.array : appender, RefAppender;
         // import std.bitmanip;
-        alias Sections = WasmReader.Sections;
-        alias WasmSection = WasmReader.WasmRange.WasmSection;
-        alias ImportType = WasmSection.ImportType;
-        alias ExportType = WasmSection.ExportType;
-        alias FuncType = WasmSection.FuncType;
         immutable(ubyte[]) frame;
         const(string) name;
 
@@ -407,4 +510,9 @@ import std.outbuffer;
 
     }
 
+    unittest {
+        static int simple_int(int x, int y);
+        TVMModules mod;
+        mod.lookup!simple_int("env");
+    }
 }
