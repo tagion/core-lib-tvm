@@ -17,7 +17,6 @@ void write_buffer(ref File fout, string data_name, immutable(ubyte[]) data) {
     foreach(p; iota(0, data.length, line_size)) {
         const actual_line_size = min(line_size, data.length-p);
         immutable(ubyte)[] line_data = data[p..p+actual_line_size];
-
         line_data.each!((a) => fout.writef("0x%02X, ", a));
         fout.writeln;
     }
@@ -26,8 +25,8 @@ void write_buffer(ref File fout, string data_name, immutable(ubyte[]) data) {
 
 int main(string[] args) {
     immutable program=args[0];
-    string module_name = "tests.wasm_sample";
-    string output_name = "tests/wasm_sample.d";
+    string module_name = "tests.wasm_samples";
+    string output_name = "tests/wasm_samples.d";
     auto main_args = getopt(args,
         std.getopt.config.caseSensitive,
         std.getopt.config.bundling,
@@ -62,7 +61,7 @@ int main(string[] args) {
     scope(exit) {
         fout.close;
     }
-    writefln("args = %s", args);
+//    writefln("args = %s", args);
 
     fout.writefln("module %s;", module_name);
     foreach(file; args[1..$]) {

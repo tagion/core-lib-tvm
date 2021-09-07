@@ -8,6 +8,7 @@ SRC:=.
 BIN:=bin
 DFILES:=$(MAIN).d
 
-EXPORTS+=generate_float
-EXPORTS+=float_to_string
-EXPORTS+=calculate
+#EXPORTS+=generate_float
+#EXPORTS+=float_to_string
+#EXPORTS+=calculate
+EXPORTS+=func_inc

@@ -8,7 +8,7 @@ import tagion.basic.Basic : doFront;
 import std.bitmanip : binpeek = peek, binwrite = write;
 import std.range : lockstep, enumerate, StoppingPolicy;
 import std.exception : assumeUnique;
-import std.traits : EnumMembers, isBasicType, isCallable, ParameterTypeTuple, ReturnType, FieldNameTuple;
+import std.traits : EnumMembers, isBasicType, isCallable, ParameterTypeTuple, ReturnType, FieldNameTuple, isFunctionPointer;
 import std.algorithm.iteration : map, filter;
 import std.range.primitives : walkLength;
 import std.array : array, join;
@@ -467,6 +467,14 @@ struct Function {
     unittest {
         static int simple_int(int x, int y);
         TVMModules mod;
-        mod.lookup!simple_int("env");
+//        mod.lookup!simple_int("env");
+    }
+
+    unittest {
+        import tests.wasm_samples : simple_alu;
+        // static int simple_int(int x, int y);
+        TVMModules mod;
+        mod.add("env", simple_alu);
+//        mod.lookup!simple_int("env");
     }
 }

@@ -19,4 +19,4 @@ wamr/CMakeCache.txt
 wamr/CMakeFiles
 llvm
 wasm-micro-runtime
-tests/wasm_sample.d
+tests/wasm_samples.d
