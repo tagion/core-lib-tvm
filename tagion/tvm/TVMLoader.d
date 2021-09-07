@@ -126,7 +126,7 @@ struct Function {
         Module result;
         if (mod_name !in modules) {
             auto reader = WasmReader(wasm);
-            modules[mod_name] = result = new Module(mod_name, reader, mod_name);
+            modules[mod_name] = result = new Module(mod_name, reader);
         }
         return result;
     }
@@ -224,40 +224,45 @@ struct Function {
                             const func_type = type_sec[export_sec.idx];
                             static if (is(TMVReturns == void)) {
                                 check(func_type.results.length is 0,
-                                    format("Return type of %s in module %s is wrong got %s expected %s",
-                                        }
-                                    else {
-                                    }
-                                    check(func_type.params.length != TVMParams.length,
-                                        format!"Number of arguments in the TVM_%s function in module %s does not match got %d expected %d"(func_name, mod_name, func_type.params.length, TVMParams.length));
-
-                                    static foreach(i, P; TVMParams) {
-                                        enum WasmType = toWasmType!T;
-                                        static assert(WasmType !is Types.EMPTY,
-                                            format!"Parameter %d Type %s is not a valid Wasm type"(i, T.stringof));
-
-                                        check(func_type.params[i] is WasmType,
-                                            format!"Parameter number %d in func TVM_%s doest not match in module %s got %s expected %s"
-                                            (i, func_name, mod_name, func_type.params[i], WasmType));
-
-                                    }
-                                    }
+                                    format("Function %s in module %s does not specify a return type but expects %s", func_name, mod_name, toDType!TVMReturns, func_type.results[0]));
                             }
+                            else {
+                                enum WasmType = toWasmType!TVMReturns;
 
-                            check(0, format("Function %s is not found in module %s",
-                                    func_name, mod_name));
+                                check(func_type.results[0] is WasmType,
+                                    format("Function %s in module %s has the wrong return type, define was %s but expected type %s", func_name, mod_name, WasmType, func_type.result[0], WasnType));
+                            }
+                            check(func_type.params.length != TVMParams.length,
+                                format!"Number of arguments in the TVM_%s function in module %s does not match got %d expected %d"(func_name, mod_name, func_type.params.length, TVMParams.length));
+
+                            static foreach(i, P; TVMParams) {
+                                enum WasmType = toWasmType!T;
+                                static assert(WasmType !is Types.EMPTY,
+                                    format!"Parameter %d Type %s is not a valid Wasm type"(i, T.stringof));
+
+                                check(func_type.params[i] is WasmType,
+                                    format!"Parameter number %d in func TVM_%s doest not match in module %s got %s expected %s"
+                                    (i, func_name, mod_name, func_type.params[i], WasmType));
+
+                            }
                         }
                     }
+
+                    check(0, format("Function %s is not found in module %s",
+                            func_name, mod_name));
                 }
+
+
                 check_func_type;
                 return &_inner_func;
             }
+
+
 
             auto lookup() {
                 return lookup!F(mod_name, F.mangleof);
             }
         }
-
         @safe struct Instance {
             import tagion.wasm.WasmReader;
             import tagion.wasm.WasmBase : Section, ExprRange, IRType, IR,
@@ -267,6 +272,7 @@ struct Function {
             immutable(FunctionInstance[]) funcs_table;
 
             const(Sections) sections;
+            const(string) mod_name;
             this(string mod_name, const(WasmReader) reader) {
                 this.mod_name = mod_name;
                 (() @trusted {
@@ -456,10 +462,8 @@ struct Function {
                 })();
                 return frame.idup;
             }
-
         }
     }
-
     unittest {
         static int simple_int(int x, int y);
         TVMModules mod;

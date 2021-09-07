@@ -1,5 +1,6 @@
 module tagion.tvm.TVM;
 
+version(none):
 import std.traits : isFunctionPointer, ParameterStorageClassTuple,
     ParameterStorageClass, ParameterTypeTuple, ReturnType, Fields,
     isBasicType, Unqual, isCallable, isPointer, isFunction, isFloatingPoint, isSomeString, ForeachType,
@@ -409,7 +410,7 @@ static unittest {
                 signature.toStringz, // the function prototype signature, avoid to use i32
                 attachment // attachment if none the null
 
-        
+
         };
         native_index[symbol] = native_symbols.length;
         native_symbols ~= native_symbol;

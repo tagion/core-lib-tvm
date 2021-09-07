@@ -14,7 +14,7 @@ import core.exception : RangeError;
 
 struct TVMExecuter {
     bool unwined;
-    void bytecode_call(ref const(TVMModules.ModuleInstance) mod_instance, ref TVMContext ctx) {
+    void bytecode_call(ref const(TVMModules.Module.Instance) mod_instance, ref TVMContext ctx) {
         scope (exit) {
             if (unwined) {
                 // Do some unwineding

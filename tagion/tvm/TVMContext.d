@@ -30,7 +30,7 @@ enum TVMError {
         return false;
     }
 
-    bool enlarge_memory(ref const(TVMModules.ModuleInstance) mod_instance, const uint delta) pure nothrow {
+    bool enlarge_memory(ref const(TVMModules.Module.Instance) mod_instance, const uint delta) pure nothrow {
         return false;
     }
 

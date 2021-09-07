@@ -4,7 +4,7 @@ include git.mk
 INSTALL+=install-llvm
 
 ifndef NOUNITTEST
-DCFLAGS+=-I$(REPOROOT)/tests/basic/d/
+#DCFLAGS+=-I$(REPOROOT)/tests/basic/d/
 DCFLAGS+=-unittest
 DCFLAGS+=-g
 DCFLAGS+=$(DEBUG)
@@ -19,7 +19,7 @@ WAMR_ROOT:=$(REPOROOT)/wasm-micro-runtime/
 
 include dstep_setup.mk
 #LIBS+=$(WAMR_ROOT)/wamr-sdk/out/default/runtime-sdk/lib/libvmlib.a
-LIBS+=$(BIN)/libwarm.a
+#LIBS+=$(BIN)/libwarm.a
 
 # DDOC Configuration
 #
@@ -45,7 +45,7 @@ TAGION_HIBON:=$(MAINROOT)/tagion_hibon/
 #include $(TAGION_BASIC)/dfiles.mk
 #include $(TAGION_UTILS)/dfiles.mk
 
-include tagion_dfiles.mk
+#include tagion_dfiles.mk
 
 # INC+=$(TAGION_BASIC)
 # INC+=$(TAGION_UTILS)
