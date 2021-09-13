@@ -1,5 +1,6 @@
 module tagion.tvm.TVMLoader;
 
+import std.stdio;
 
 import tagion.wasm.WasmReader : WasmReader;
 
@@ -211,6 +212,7 @@ struct Function {
 
                 auto export_sec = reader.get!(Section.EXPORT);
 
+
 //                version(none)
                 void check_func_type() {
                     alias TVMFunction = typeof(_inner_func);
@@ -220,8 +222,22 @@ struct Function {
 //                    auto r = mod.reader;
                     // auto export_sec = mod.reader.get!(Section.EXPORT);
 //                    version(none)
+                    writefln("export_sec.length=%d", export_sec.length);
+                    writefln("export_sec.data=%s", export_sec.data);
+                    auto e = export_sec[];
+                    writefln("e.empty=%s", e.empty);
+                    // writefln("e.data=%s", e.data);
+                    writefln("e.front=%s", e.front);
+
+                    writefln("EXPORT SEC start");
+                    while(!e.empty) {
+                        writefln("e.front=%s", e.front);
+                        e.popFront;
+                    }
                     foreach(export_type; export_sec[]) {
+                        writefln("export func %s export_type.name = %s", export_type, export_type.name);
                         if (func_name == export_type.name) {
+                            writefln("Found %s", func_name);
                             check(export_type.desc is IndexType.FUNC,
                                 format("The export %s is in module %s not a function type but a %s type", func_name, mod_name, export_type.desc));
                             const type_sec = reader.get!(Section.TYPE);
@@ -240,22 +256,21 @@ struct Function {
                             }
                             check(func_type.params.length != TVMParams.length,
                                 format!"Number of arguments in the TVM_%s function in module %s does not match got %d expected %d"(func_name, mod_name, func_type.params.length, TVMParams.length));
+                            static assert(is(TVMContext == TVMParams[0]), format!"The first parameter of a wasm interface function must be %s"(TVMContext.stringof));
 
-                            static foreach(i, P; TVMParams) {{
-                                    static if((i == 0)) {
-                                        static assert(is(P == TVMContext), format!"The first parameter of a wasm interface function must be %s"(TVMContext.strongof));
-                                    }
-                                    else {
-                                        enum WasmType = toWasmType!P;
-                                        static assert(WasmType !is Types.EMPTY,
-                                            format!"Parameter number %d Type %s is not a valid Wasm type"(i, P.stringof));
+                            static foreach(i, P; TVMParams[1..$]) {{
+                                    enum WasmType = toWasmType!P;
+                                    static assert(WasmType !is Types.EMPTY,
+                                        format!"Parameter number %d Type %s is not a valid Wasm type"(i, P.stringof));
+                                    check(i < func_type.params.length, format!"Too few parameters expected %d but caller tries to access parameter number %d"(func_type.params.length, i));
 
-                                        check(func_type.params[i] is WasmType,
-                                            format!"Parameter number %d in func TVM_%s doest not match in module %s got %s expected %s"
-                                            (i, func_name, mod_name, func_type.params[i], WasmType));
-                                    }
-                                }}
+                                    check(func_type.params[i] is WasmType,
+                                        format!"Parameter number %d in func TVM_%s doest not match in module %s got %s expected %s"
+                                        (i, func_name, mod_name, func_type.params[i], WasmType));
+                            }}
+                            return;
                         }
+
                     }
 
                     check(0, format("Function %s is not found in module %s",
