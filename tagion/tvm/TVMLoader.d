@@ -1,5 +1,6 @@
 module tagion.tvm.TVMLoader;
 
+
 import tagion.wasm.WasmReader : WasmReader;
 
 import tagion.tvm.TVMBasic : FunctionInstance;
@@ -165,7 +166,7 @@ struct Function {
             import tagion.tvm.TVMContext;
 
             auto lookup(string func_name) {
-                Module mod;
+//                Module mod;
                 alias Params=ParameterTypeTuple!F;
                 enum ParamNames = [ParameterIdentifierTuple!F];
                 alias Returns=ReturnType!F;
@@ -176,7 +177,7 @@ struct Function {
                     string[] func_body;
                     string[] params;
                     params ~= format!"ref TVMContext %s"(context_name);
-                    static foreach(i, P; Params) {
+                    static foreach(i, P; Params) {{
                         static if (ParamNames[i].length) {
                             enum param_name = ParamNames[i];
                         }
@@ -189,7 +190,7 @@ struct Function {
                             ctx.push(%2$s);
                             //}
                         }(P.stringof, param_name);
-                    }
+                        }}
                     const result = format!q{
                         %1$s _inner_func(%2$s) {
                             import std.stdio;
@@ -207,16 +208,23 @@ struct Function {
                 enum code = generate_func;
                 pragma(msg, "CODE=", code);
                 mixin(code);
+
+                auto export_sec = reader.get!(Section.EXPORT);
+
+//                version(none)
                 void check_func_type() {
                     alias TVMFunction = typeof(_inner_func);
                     alias TVMParams = ParameterTypeTuple!TVMFunction;
                     alias TVMReturns = ReturnType!TVMFunction;
-                    auto export_sec = mod.reader.get!(Section.EXPORT);
+                    //auto m = mod;
+//                    auto r = mod.reader;
+                    // auto export_sec = mod.reader.get!(Section.EXPORT);
+//                    version(none)
                     foreach(export_type; export_sec[]) {
                         if (func_name == export_type.name) {
                             check(export_type.desc is IndexType.FUNC,
                                 format("The export %s is in module %s not a function type but a %s type", func_name, mod_name, export_type.desc));
-                            const type_sec = mod.reader.get!(Section.TYPE);
+                            const type_sec = reader.get!(Section.TYPE);
                             pragma(msg, typeof( type_sec));
                             pragma(msg, typeof(export_type));
                             const func_type = type_sec[export_type.idx];
@@ -262,6 +270,7 @@ struct Function {
 
 
             auto lookup() {
+                pragma(msg, "func_name ", F.mangleof);
                 return lookup!F(F.mangleof);
             }
         }
@@ -481,10 +490,12 @@ struct Function {
         TVMModules tvm_mod;
         auto mod=tvm_mod("env", simple_alu);
 
-        import mod_simple_alu = tests.simple_alu.simple_alu;
+//        import mod_simple_alu = tests.simple_alu.simple_alu;
 
-        const func_inc = mod.lookup!(mod_simple_alu.func_inc);
+        const wasm_func_inc = mod.lookup!(func_inc);
         tvm_mod.link;
 //        mod.lookup!simple_int("env");
     }
 }
+
+extern (C) int func_inc(int x);
