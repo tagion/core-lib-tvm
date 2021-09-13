@@ -8,7 +8,7 @@ import tagion.basic.Basic : doFront;
 import std.bitmanip : binpeek = peek, binwrite = write;
 import std.range : lockstep, enumerate, StoppingPolicy;
 import std.exception : assumeUnique;
-import std.traits : EnumMembers, isBasicType, isCallable, ParameterTypeTuple, ReturnType, FieldNameTuple, isFunctionPointer;
+import std.traits : EnumMembers, isBasicType, isCallable, ParameterTypeTuple, ReturnType, FieldNameTuple, isFunctionPointer, ParameterIdentifierTuple;
 import std.algorithm.iteration : map, filter;
 import std.range.primitives : walkLength;
 import std.array : array, join;
@@ -111,6 +111,7 @@ struct Function {
 }
 
 @safe struct TVMModules {
+    import tagion.wasm.WasmBase : Section, IndexType, toWasmType, Types;
     alias Sections = WasmReader.Sections;
     alias WasmSection = WasmReader.WasmRange.WasmSection;
     alias ImportType = WasmSection.ImportType;
@@ -122,7 +123,7 @@ struct Function {
         Module[string] modules;
     }
 
-    Module add(string mod_name, immutable(ubyte[]) wasm) pure nothrow {
+    Module opCall(string mod_name, immutable(ubyte[]) wasm) pure nothrow {
         Module result;
         if (mod_name !in modules) {
             auto reader = WasmReader(wasm);
@@ -146,11 +147,6 @@ struct Function {
     RetT call(RetT, Args...)() {
     }
 
-    // void build() pure {
-    // }
-
-    //alias Func = typeof(F);
-
     @safe class Module {
         const(WasmReader) reader;
         const(string) mod_name;
@@ -160,7 +156,7 @@ struct Function {
             return _instance;
         }
 
-        this(string mod_name, const(WasmReader) reader) pure nothrow {
+        protected this(string mod_name, const(WasmReader) reader) pure nothrow {
             this.reader = reader;
             this.mod_name = mod_name;
         }
@@ -171,7 +167,7 @@ struct Function {
             auto lookup(string func_name) {
                 Module mod;
                 alias Params=ParameterTypeTuple!F;
-                enum ParamNames = [ParameterIdentifierTuple!foo];
+                enum ParamNames = [ParameterIdentifierTuple!F];
                 alias Returns=ReturnType!F;
                 enum param_prefix ="param_";
                 enum context_name ="ctx";
@@ -213,7 +209,7 @@ struct Function {
                 mixin(code);
                 void check_func_type() {
                     alias TVMFunction = typeof(_inner_func);
-                    alias TVMParams = ParameterTupleType!TVMFunction;
+                    alias TVMParams = ParameterTypeTuple!TVMFunction;
                     alias TVMReturns = ReturnType!TVMFunction;
                     auto export_sec = mod.reader.get!(Section.EXPORT);
                     foreach(export_type; export_sec[]) {
@@ -221,30 +217,36 @@ struct Function {
                             check(export_type.desc is IndexType.FUNC,
                                 format("The export %s is in module %s not a function type but a %s type", func_name, mod_name, export_type.desc));
                             const type_sec = mod.reader.get!(Section.TYPE);
-                            const func_type = type_sec[export_sec.idx];
+                            pragma(msg, typeof( type_sec));
+                            pragma(msg, typeof(export_type));
+                            const func_type = type_sec[export_type.idx];
                             static if (is(TMVReturns == void)) {
                                 check(func_type.results.length is 0,
                                     format("Function %s in module %s does not specify a return type but expects %s", func_name, mod_name, toDType!TVMReturns, func_type.results[0]));
                             }
                             else {
-                                enum WasmType = toWasmType!TVMReturns;
+                                enum WasmReturnType = toWasmType!TVMReturns;
 
-                                check(func_type.results[0] is WasmType,
-                                    format("Function %s in module %s has the wrong return type, define was %s but expected type %s", func_name, mod_name, WasmType, func_type.result[0], WasnType));
+                                check(func_type.results[0] is WasmReturnType,
+                                    format("Function %s in module %s has the wrong return type, define was %s but expected type %s", func_name, mod_name, func_type.results[0], WasmReturnType));
                             }
                             check(func_type.params.length != TVMParams.length,
                                 format!"Number of arguments in the TVM_%s function in module %s does not match got %d expected %d"(func_name, mod_name, func_type.params.length, TVMParams.length));
 
-                            static foreach(i, P; TVMParams) {
-                                enum WasmType = toWasmType!T;
-                                static assert(WasmType !is Types.EMPTY,
-                                    format!"Parameter %d Type %s is not a valid Wasm type"(i, T.stringof));
+                            static foreach(i, P; TVMParams) {{
+                                    static if((i == 0)) {
+                                        static assert(is(P == TVMContext), format!"The first parameter of a wasm interface function must be %s"(TVMContext.strongof));
+                                    }
+                                    else {
+                                        enum WasmType = toWasmType!P;
+                                        static assert(WasmType !is Types.EMPTY,
+                                            format!"Parameter number %d Type %s is not a valid Wasm type"(i, P.stringof));
 
-                                check(func_type.params[i] is WasmType,
-                                    format!"Parameter number %d in func TVM_%s doest not match in module %s got %s expected %s"
-                                    (i, func_name, mod_name, func_type.params[i], WasmType));
-
-                            }
+                                        check(func_type.params[i] is WasmType,
+                                            format!"Parameter number %d in func TVM_%s doest not match in module %s got %s expected %s"
+                                            (i, func_name, mod_name, func_type.params[i], WasmType));
+                                    }
+                                }}
                         }
                     }
 
@@ -260,7 +262,7 @@ struct Function {
 
 
             auto lookup() {
-                return lookup!F(mod_name, F.mangleof);
+                return lookup!F(F.mangleof);
             }
         }
         @safe struct Instance {
@@ -436,10 +438,12 @@ struct Function {
                     expand_block(0, current_offset);
                     // Insert branch jump pointes of the labels
                     auto frame = bouts[0].toBytes;
-                    foreach (branch_offset; label_offsets) {
-                        const labelidx = frame.binpeek!uint(branch_offset);
-                        frame.binwrite(labels[labelidx], branch_offset);
-                    }
+                    (() @trusted {
+                        foreach (branch_offset; label_offsets) {
+                            const labelidx = frame.binpeek!uint(branch_offset);
+                            frame.binwrite(labels[labelidx], branch_offset);
+                        }
+                    })();
                 }
 
                 auto frame_buf = new TVMBuffer;
@@ -472,9 +476,15 @@ struct Function {
 
     unittest {
         import tests.wasm_samples : simple_alu;
+
         // static int simple_int(int x, int y);
-        TVMModules mod;
-        mod.add("env", simple_alu);
+        TVMModules tvm_mod;
+        auto mod=tvm_mod("env", simple_alu);
+
+        import mod_simple_alu = tests.simple_alu.simple_alu;
+
+        const func_inc = mod.lookup!(mod_simple_alu.func_inc);
+        tvm_mod.link;
 //        mod.lookup!simple_int("env");
     }
 }

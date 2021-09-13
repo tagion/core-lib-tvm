@@ -1,3 +1,10 @@
+REPOROOT?=${shell git rev-parse --show-toplevel}
+
+# DC?=ldc2
+# LD:=/opt/wasi-sdk/bin/wasm-ld
+SRC?=src
+BIN?=$(REPOROOT)/bin
+
 include setup.mk
 
 WOBJS:=${DFILES:.d=.wo}
@@ -8,11 +15,9 @@ WASM_MOD:=${WOBJS:.wo=.wasm}
 WASMFLAGS+=-mtriple=wasm32-unknown-unknown-was
 WASMFLAGS+=--betterC
 WASMFLAGS+=-O
-LDWFLAGS+=${addprefix --export=, $(EXPORTS)}
+#LDWFLAGS+=${addprefix --export=, $(EXPORTS)}
 LDWFLAGS+=--allow-undefined
 
-SRC?=src
-BIN?=bin
 
 vpath %.d $(SRC)
 
