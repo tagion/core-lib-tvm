@@ -8,7 +8,7 @@ core
 dfiles.mk
 revision.di
 bin
-tagion/vm/wamr/c/
+tagion/tvm/c/
 tests/basic/d/basic
 *.parked
 multi-module
@@ -17,3 +17,6 @@ tests/wasmd/
 wamr/build/
 wamr/CMakeCache.txt
 wamr/CMakeFiles
+llvm
+wasm-micro-runtime
+tests/wasm_samples.d

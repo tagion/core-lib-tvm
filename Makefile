@@ -1,15 +1,53 @@
+HELP+=help-main
+
+help: $(HELP)
+	@echo "make install     : Compile the main LLVM"
+	@echo
+	@echo "make lib       : Builds $(LIBNAME) library"
+	@echo
+	@echo "make unittest      : Run the unittests"
+	@echo
+	@echo "make subdate   : If the repo been clone with out --recursive then run the"
+	@echo
+	@echo "make spull     : All the submodules can be pull by"
+	@echo
+
+help-main:
+	@echo "Usage "
+	@echo
+	@echo "make info      : Prints the Link and Compile setting"
+	@echo
+	@echo "make proper    : Clean all"
+	@echo
+	@echo "make ddoc      : Creates source documentation"
+	@echo
+	@echo "make PRECMD=   : Verbose mode"
+	@echo "                 make PRECMD= <tag> # Prints the command while executing"
+	@echo
+
+info:
+	@echo "WAYS    =$(WAYS)"
+	@echo "DFILES  =$(DFILES)"
+	@echo "OBJS    =$(OBJS)"
+	@echo "LDCFLAGS =$(LDCFLAGS)"
+	@echo "DCFLAGS  =$(DCFLAGS)"
+	@echo "INCFLAGS =$(INCFLAGS)"
+	@echo "GIT_REVNO=$(GIT_REVNO)"
+	@echo "GIT_HASH =$(GIT_HASH)"
+
+
 include git.mk
 
 ifndef $(VERBOSE)
 PRECMD?=@
 endif
 
+
 DC?=dmd
 AR?=ar
 include $(REPOROOT)/command.mk
 
 
-include $(MAINROOT)/dinclude_setup.mk
 DCFLAGS+=$(addprefix -I$(MAINROOT)/,$(DINC))
 
 include setup.mk
@@ -17,7 +55,7 @@ include setup.mk
 -include $(REPOROOT)/dfiles.mk
 
 #BIN:=bin/
-LDCFLAGS+=$(LINKERFLAG)-L$(BINDIR)
+#LDCFLAGS+=$(LINKERFLAG)-L$(BINDIR)
 ARFLAGS:=rcs
 BUILD?=$(REPOROOT)/build
 #SRC?=$(REPOROOT)
@@ -49,54 +87,25 @@ ifndef DFILES
 include $(REPOROOT)/source.mk
 endif
 
-HELP+=help-main
-
-help: $(HELP)
-	@echo "make lib       : Builds $(LIBNAME) library"
-	@echo
-	@echo "make test      : Run the unittests"
-	@echo
-	@echo "make subdate   : If the repo been clone with out --recursive then run the"
-	@echo
-	@echo "make spull     : All the submodules can be pull by"
-	@echo
-
-help-main:
-	@echo "Usage "
-	@echo
-	@echo "make info      : Prints the Link and Compile setting"
-	@echo
-	@echo "make proper    : Clean all"
-	@echo
-	@echo "make ddoc      : Creates source documentation"
-	@echo
-	@echo "make PRECMD=   : Verbose mode"
-	@echo "                 make PRECMD= <tag> # Prints the command while executing"
-	@echo
-
-info:
-	@echo "WAYS    =$(WAYS)"
-	@echo "DFILES  =$(DFILES)"
-#	@echo "OBJS    =$(OBJS)"
-	@echo "LDCFLAGS =$(LDCFLAGS)"
-	@echo "DCFLAGS  =$(DCFLAGS)"
-	@echo "INCFLAGS =$(INCFLAGS)"
-	@echo "GIT_REVNO=$(GIT_REVNO)"
-	@echo "GIT_HASH =$(GIT_HASH)"
-
 include $(REPOROOT)/revision.mk
 
 ifndef DFILES
 lib: dodi dfiles.mk
 	$(MAKE) lib
+	$(MAKE) -f wasm_lib.mk
 
 unittest: dfiles.mk
 	$(MAKE) unittest
 else
 lib: $(REVISION) $(LIBRARY)
 
-unittest: $(UNITTEST)
+unittest: dodi $(UNITTEST)
 	export LD_LIBRARY_PATH=$(LIBBRARY_PATH); $(UNITTEST)
+
+debug: $(UNITTEST)
+	export LD_LIBRARY_PATH=$(LIBBRARY_PATH); ddd $(UNITTEST)
+
+revision:$(REVISION)
 
 $(UNITTEST): $(LIBS) $(WAYS)
 	$(PRECMD)$(DC) $(DCFLAGS) $(INCFLAGS) $(DFILES) $(TESTDCFLAGS) $(LDCFLAGS) $(OUTPUT)$@
@@ -136,6 +145,8 @@ $(LIBRARY): ${DFILES}
 	@echo "########################################################################################"
 	${PRECMD}$(DC) ${INCFLAGS} $(DCFLAGS) $(DFILES) -c $(OUTPUT)$(LIBRARY)
 
+install: $(INSTALL)
+
 CLEANER+=clean
 
 subdate:
@@ -146,14 +157,15 @@ spull:
 
 clean:
 	rm -f $(LIBRARY)
-	rm -f ${OBJS}
+	rm -f $(BIN)/*.o
 	rm -f $(UNITTEST) $(UNITTEST).o
 
 proper: $(CLEANER)
 	rm -fR $(WAYS)
+	rm -f dfiles.mk
 
 $(PROGRAMS):
 	$(DC) $(DCFLAGS) $(LDCFLAGS) $(OUTPUT) $@
 
 install-llvm:
-	$(REPOROOT)/wasm-micro-runtime/wamr-compiler/build_llvm.sh
+	cd $(REPOROOT)/wasm-micro-runtime/wamr-compiler/; ./build_llvm.sh
