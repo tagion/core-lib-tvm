@@ -498,18 +498,20 @@ struct Function {
 //        mod.lookup!simple_int("env");
     }
 
-    unittest {
-        import tests.wasm_samples : simple_alu;
+    version (none) {
+        unittest {
+            import tests.wasm_samples : simple_alu;
 
-        // static int simple_int(int x, int y);
-        TVMModules tvm_mod;
-        auto mod=tvm_mod("env", simple_alu);
+            // static int simple_int(int x, int y);
+            TVMModules tvm_mod;
+            auto mod=tvm_mod("env", simple_alu);
 
-//        import mod_simple_alu = tests.simple_alu.simple_alu;
+    //        import mod_simple_alu = tests.simple_alu.simple_alu;
 
-        const wasm_func_inc = mod.lookup!(func_inc);
-        tvm_mod.link;
-//        mod.lookup!simple_int("env");
+            const wasm_func_inc = mod.lookup!(func_inc);
+            tvm_mod.link;
+    //        mod.lookup!simple_int("env");
+        }
     }
 }
 
