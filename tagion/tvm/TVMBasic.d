@@ -159,12 +159,12 @@ static unittest {
                         static if (ir is ILLEGAL_IR) {
                             // Internal IR which do not have a Instr UDA
                             case internalIR:
-                                pragma(msg, "ILLEGAL_IR ", internalIR);
+                                //pragma(msg, "ILLEGAL_IR ", internalIR);
                                 break OpCodeCase;
                         }
                         else {
                             case internalIR:
-                                pragma(msg, "IR ", internalIR);
+                                //pragma(msg, "IR ", internalIR);
                                 //enum ir = convert(E);
                                 enum instr = getInstr!(ir);
                             with(IRType) {
