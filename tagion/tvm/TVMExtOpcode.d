@@ -51,10 +51,12 @@ protected string generateInternalIR(string enum_name)() {
             codes ~= format!q{%s = %d,}(E, E);
         }
     }
+
     codes ~= `};`;
     return codes.join("\n");
 }
 
+enum ILLEGAL_IR = ubyte.max;
 // pragma(msg, generateInternalIR);
 //pragma(msg, generateInternalIR!q{InternalIR});
 mixin(generateInternalIR!q{InternalIR});
@@ -63,7 +65,8 @@ mixin(generateInternalIR!q{InternalIR});
 
 version (COMPACT_EXTENDED_IR) {
     protected ubyte[ubyte.max + 1] generateInternalIRToIR() {
-        ubyte[ubyte.max + 1] table = ubyte.max;
+        ubyte[ubyte.max + 1] table = ILLEGAL_IR;
+        ubyte.max;
 
         foreach (i, E; [EnumMembers!(WasmBase.IR)]) {
             table[i] = cast(ubyte) E;
@@ -72,7 +75,7 @@ version (COMPACT_EXTENDED_IR) {
     }
 
     protected ubyte[ubyte.max + 1] generateIRToInternalIR() {
-        ubyte[ubyte.max + 1] table = ubyte.max;
+        ubyte[ubyte.max + 1] table = ILLEGAL_IR;
 
         foreach (i, E; [EnumMembers!(InternalIR)]) {
             table[i] = cast(ubyte) E;
@@ -91,7 +94,7 @@ bool isPrefixIR(const InternalIR ir) pure nothrow @safe {
 WasmBase.IR convert(const InternalIR ir) @safe pure nothrow {
     version (COMPACT_EXTENDED_IR) {
         if (isPrefixIR(ir)) {
-            return cast(WasmBase.IR) ubyte.max;
+            return cast(WasmBase.IR) ILLEGAL_IR;
         }
         return cast(WasmBase.IR) InternalIRToIR[ir];
     }
@@ -100,16 +103,16 @@ WasmBase.IR convert(const InternalIR ir) @safe pure nothrow {
         switch (ir) {
             static foreach (E; EnumMembers!(InternalIR)) {
 //                pragma(msg, "E ", E, " ", E.to!ubyte);
-        case E:
-            static if (isWasmIR!E) {
-                return cast(WasmBase.IR) ir;
-            }
-            else {
-                goto default;
-            }
+            case E:
+                static if (isWasmIR!E) {
+                    return cast(WasmBase.IR) ir;
+                }
+                else {
+                    goto default;
+                }
             }
         default:
-            return cast(WasmBase.IR) ubyte.max;
+            return cast(WasmBase.IR) ILLEGAL_IR;
         }
     }
 

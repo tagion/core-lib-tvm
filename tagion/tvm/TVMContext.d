@@ -11,8 +11,8 @@ enum TVMError {
 }
 /* Execution environment */
 @safe @nogc struct TVMContext {
-    import tagion.tvm.TVMBasic : WasmType, WasmTypes, isWasmType;
-    import tagion.tvm.TVMLoader : TVMModules;
+    import tagion.tvm.TVMBasic : WasmType, WasmTypes, isWasmType, FunctionInstance;
+    import tagion.tvm.TVM : TVMModules;
     import tagion.basic.Basic : isOneOf;
     import core.exception : RangeError, onRangeError;
     import std.meta : allSatisfy;
@@ -34,7 +34,7 @@ enum TVMError {
         return false;
     }
 
-    WasmType[] locals;
+//    WasmType[] locals;
     WasmType[] globals;
     //    WASM_STACK wasm_stack;
     WasmType[] stack;
@@ -50,6 +50,7 @@ enum TVMError {
         return stack[sp-1].get!T;
     }
 
+
     void push(T)(const T x) if (isWasmType!T) {
         stack[sp] = x;
         sp++;
@@ -62,8 +63,32 @@ enum TVMError {
         sp -= Args.length;
     }
 
+    // void pop(ref scope WasmType[] values, const size_t size) {
+    //     values=stack[sp-values.length..sp];
+    //     sp-=values.length;
+    // }
+
     const(T) peek(T)() const pure if (isOneOf!(T, WasmTypes)) {
         return stack[sp - 1].get!T;
+    }
+
+    WasmType[] get_locals(ref const FunctionInstance wasm_func) {
+        const local_size = wasm_func.param_count + wasm_func.local_count;
+        const local_start = sp-1-wasm_func.param_count;
+        scope(exit) {
+            //stack[sp-1..sp-1+wasm_func.local_size] = 0;
+            sp+=wasm_func.local_count;
+        }
+        return stack[local_start..local_start+local_size];
+    }
+
+    void pop_return(ref const FunctionInstance wasm_func) {
+        const local_size = wasm_func.local_count + wasm_func.param_count;
+        const new_sp = sp-1-local_size;
+        if (wasm_func.return_count) {
+            stack[new_sp..new_sp+wasm_func.return_count] = stack[sp-1..sp-1+wasm_func.return_count];
+        }
+        sp=new_sp;
     }
 
     void op_drop() pure {

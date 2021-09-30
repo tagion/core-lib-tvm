@@ -7,10 +7,10 @@ BIN?=$(REPOROOT)/bin
 
 include setup.mk
 
-WOBJS:=${DFILES:.d=.wo}
+#WOBJS:=${DFILES:.d=.wo}
 
-WOBJS:=${addprefix $(BIN)/,$(WOBJS)}
-WASM_MOD:=${WOBJS:.wo=.wasm}
+#WOBJS:=${addprefix $(BIN)/,$(WOBJS)}
+#WASM_MOD:=${WOBJS:.wo=.wasm}
 
 WASMFLAGS+=-mtriple=wasm32-unknown-unknown-was
 WASMFLAGS+=--betterC
@@ -19,15 +19,15 @@ WASMFLAGS+=-O
 LDWFLAGS+=--allow-undefined
 
 
-vpath %.d $(SRC)
+#vpath %.d $(SRC)
 
-all: $(BIN) $(WASM_MOD)
+all: $(BIN) $(WASMFILES)
 
 info:
 	@echo BIN=$(BIN)
 	@echo SRC=$(SRC)
-	@echo WOBJS=$(WOBJS)
-	@echo WASM_MOD=$(WASM_MOD)
+	@echo WASMFILES=$(WASMFILES)
+	@echo WASM_TESTS=$(WASM_TESTS)
 	@echo DFILES=$(DFILES)
 
 $(BIN):
@@ -41,5 +41,4 @@ $(BIN)/%.wo: $(SRC)/%.d
 
 
 clean:
-	rm -f $(WASM_MOD)
 	rm -fR $(BIN)
