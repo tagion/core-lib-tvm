@@ -1,4 +1,0 @@
-__assert
-__indirect_function_table
-__stack_pointer
-__linear_memory
