@@ -121,7 +121,7 @@ static unittest {
     union {
         struct {
             immutable(ubyte)[] frame;
-            immutable(ubyte[])[] blocks;
+            immutable(ubyte)[][] blocks;
             //uint ip; // Bincode instruction pointer
 //            ushort local_size; /// local variable count, 0 for import function
 
@@ -138,6 +138,7 @@ static unittest {
         auto range=func_body.block_segments.map!((segment) => full_frame[segment.start_index..segment.end_index]);
         frame = range.front;
         range.popFront;
+        pragma(msg, "typeof(range.array) ", typeof(range.array));
         blocks = range.array;
     }
 
