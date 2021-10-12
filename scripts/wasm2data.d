@@ -12,7 +12,7 @@ import std.array : join;
 import std.path : baseName, stripExtension;
 
 void write_buffer(ref File fout, string data_name, immutable(ubyte[]) data) {
-    fout.writefln("immutable(ubyte[]) %s = [", data_name);
+    fout.writefln("static immutable(ubyte[]) %s = [", data_name);
     enum line_size = 16;
     foreach(p; iota(0, data.length, line_size)) {
         const actual_line_size = min(line_size, data.length-p);

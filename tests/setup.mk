@@ -7,8 +7,8 @@ WASM_TESTS+=simple_alu
 WASM_TESTS+=call_test
 WASM_TESTS+=simple_pay
 
-WASM_SAMPLES:=$(REPOROOT)/tagion/tvm/tests/wasm_samples.d
-WASM_SAMPLES_MODULE:=tagion.tvm.wasm_samples
+WASM_SAMPLES:=$(REPOROOT)/tagion/tvm/test/wasm_samples.d
+WASM_SAMPLES_MODULE:=tagion.tvm.test.wasm_samples
 
 
 WASMFLAGS+=-mtriple=wasm32-unknown-unknown-was

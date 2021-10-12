@@ -6,4 +6,4 @@ core
 .#*
 *~
 *.parked
-tagion/tvm/tests/*
+tagion/tvm/test/*

@@ -1300,7 +1300,7 @@ struct Function {
     }
 
     unittest {
-        import tests.wasm_samples : simple_alu;
+        import tagion.tvm.test.wasm_samples : simple_alu;
         import tagion.tvm.TVMContext;
         // static int simple_int(int x, int y);
         TVMModules tvm_mod;
