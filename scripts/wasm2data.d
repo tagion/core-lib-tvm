@@ -25,8 +25,8 @@ void write_buffer(ref File fout, string data_name, immutable(ubyte[]) data) {
 
 int main(string[] args) {
     immutable program=args[0];
-    string module_name = "tests.wasm_samples";
-    string output_name = "tests/wasm_samples.d";
+    string module_name = "tagion.tests.wasm_samples";
+    string output_name = "tagion/tvm/tests/wasm_samples.d";
     auto main_args = getopt(args,
         std.getopt.config.caseSensitive,
         std.getopt.config.bundling,

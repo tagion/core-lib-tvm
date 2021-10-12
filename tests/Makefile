@@ -35,7 +35,10 @@ $(BIN)/%.wo: $(SRC)/%.d
 	$(DCWASM) $(WASMFLAGS) -c $< -of$@
 
 $(WASM_SAMPLES): $(WASMFILES)
-	$(WASM2DATA) $(WASMFILES)
+	mkdir -p $(@D)
+	$(WASM2DATA) $(WASMFILES) -o $@ -m $(WASM_SAMPLES_MODULE)
+
 
 clean:
 	rm -fR $(BIN)
+	rm -fR $(WASM_SAMPLES)
