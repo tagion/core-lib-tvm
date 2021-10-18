@@ -11,6 +11,7 @@ enum TVMError {
 }
 /* Execution environment */
 @safe @nogc struct TVMContext {
+    import std.stdio;
     import tagion.tvm.TVMBasic : WasmType, WasmTypes, isWasmType, FunctionInstance;
     import tagion.tvm.TVM : TVMModules;
     import tagion.basic.Basic : isOneOf;
@@ -46,6 +47,9 @@ enum TVMError {
     const(T) pop(T)() pure if (isWasmType!T) {
         scope(exit) {
             sp--;
+        }
+        debug if (sp <= 0) {
+            writefln("Stack error");
         }
         return stack[sp-1].get!T;
     }

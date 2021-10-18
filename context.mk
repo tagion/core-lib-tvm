@@ -9,3 +9,6 @@ SOURCE_FIND_EXCLUDE += "*/tests/*"
 
 libtagiontvm.ctx: libtagionbasic.o libtagionwasm.o
 	@
+
+
+DCFLAGS+=$(DEBUG)
