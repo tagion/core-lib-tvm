@@ -11,11 +11,13 @@ import tagion.basic.Basic : doFront;
 import std.bitmanip : binpeek = peek, binwrite = write;
 import std.range : lockstep, enumerate, StoppingPolicy;
 import std.exception : assumeUnique;
-import std.traits : EnumMembers, isBasicType, isCallable, isIntegral, isFloatingPoint, ParameterTypeTuple, ReturnType, FieldNameTuple, isFunctionPointer, ParameterIdentifierTuple;
+import std.traits : EnumMembers, isBasicType, isCallable, isIntegral, isFloatingPoint, ParameterTypeTuple, ReturnType,
+    FieldNameTuple, isFunctionPointer, ParameterIdentifierTuple;
 import std.algorithm.iteration : map, filter;
 import std.range.primitives : walkLength;
 import std.array : array, join;
 import std.format;
+
 //import std.typecons.Tuple : fieldNames;
 
 import LEB128 = tagion.utils.LEB128;
@@ -23,6 +25,7 @@ import std.outbuffer;
 
 struct Function {
 }
+
 @safe class TVMBuffer : OutBuffer {
     import tagion.tvm.TVMExtOpcode : InternalIR;
     import tagion.wasm.WasmBase : WasmArg, Types;
@@ -84,9 +87,9 @@ struct Function {
     //    alias reserve = super.reserve;
     version (none) pure nothrow {
         void insert(T)(scope T x, const size_t index) @trusted if (isBasicType)
-            in {
-                assert(index < offset);
-            }
+        in {
+            assert(index < offset);
+        }
         do {
             reserve(T.sizeof);
             data[index + T.sizeof .. offset + T.sizeof] = data[index .. offset];
@@ -95,9 +98,9 @@ struct Function {
         }
 
         void insert(scope const(ubyte[]) x, const size_t index) @safe
-            in {
-                assert(index < offset);
-            }
+        in {
+            assert(index < offset);
+        }
         do {
             reserve(x.length);
             data[index + x.length .. offset + x.length] = data[index .. offset];
@@ -117,6 +120,7 @@ struct Function {
     import tagion.wasm.WasmBase : Section, IndexType, toWasmType, Types;
     import tagion.tvm.TVMContext : TVMError, TVMContext;
     import tagion.tvm.TVMBasic : WasmType;
+
     alias Sections = WasmReader.Sections;
     alias WasmSection = WasmReader.WasmRange.WasmSection;
     alias ImportType = WasmSection.ImportType;
@@ -138,7 +142,7 @@ struct Function {
     }
 
     void link() {
-        foreach(mod_name, mod; modules) {
+        foreach (mod_name, mod; modules) {
             mod.init;
         }
     }
@@ -169,9 +173,9 @@ struct Function {
         }
 
         protected void init()
-            in {
-                assert(_instance is null);
-            }
+        in {
+            assert(_instance is null);
+        }
         do {
             _instance = new Instance;
         }
@@ -180,63 +184,13 @@ struct Function {
             import tagion.tvm.TVMContext;
 
             auto lookup(string func_name) {
-//                Module mod;
-                alias Params=ParameterTypeTuple!F;
-                enum ParamNames = [ParameterIdentifierTuple!F];
-                alias Returns=ReturnType!F;
-                enum param_prefix ="param_";
-                enum context_name ="ctx";
-                int funcidx;
-                string generate_func() {
-                    string[] func_body;
-                    string[] params;
-                    params ~= format!"ref TVMContext %s"(context_name);
-                    static foreach(i, P; Params) {{
-                            static if (ParamNames[i].length) {
-                                enum param_name = ParamNames[i];
-                            }
-                            else {
-                                enum param_name = format!`%s%d`(param_prefix, i);
-                            }
-                            params ~= format!`%s %s`(P.stringof, param_name);
-                            func_body ~= format!q{
-                                //static if (isWasmParam!%1$s) {
-                                ctx.push(%2$s);
-                                //}
-                            }(P.stringof, param_name);
-                        }}
-                    const result = format!q{
-                        %1$s _inner_func(%2$s) {
-                            import std.stdio;
-                            %3$s
-                            _instance.bytecode_call(ctx, function_instance);
-                            writeln("funcidx", funcidx);
-                            return ctx.pop!%1$s;
-                        }
-                    }(
-                        Returns.stringof,
-                        params.join(", "),
-                        func_body.join("\n"),
-                        );
-                    return result;
-                }
-                FunctionInstance function_instance;
-                enum code = generate_func;
-                //pragma(msg, "CODE=", code);
-                mixin(code);
+                const export_sec = reader.get!(Section.EXPORT);
 
-                auto export_sec = reader.get!(Section.EXPORT);
-
-
-//                version(none)
-                void check_func_type() {
-                    alias TVMFunction = typeof(_inner_func);
+                //                version(none)
+                immutable(FunctionInstance) check_func_type(TVMFunction)() {
+                    //                    alias TVMFunction = typeof(_inner_func);
                     alias TVMParams = ParameterTypeTuple!TVMFunction;
                     alias TVMReturns = ReturnType!TVMFunction;
-                    //auto m = mod;
-//                    auto r = mod.reader;
-                    // auto export_sec = mod.reader.get!(Section.EXPORT);
-//                    version(none)
                     writefln("export_sec.length=%d", export_sec.length);
                     writefln("export_sec.data=%s", export_sec.data);
                     auto e = export_sec[];
@@ -245,92 +199,144 @@ struct Function {
                     writefln("e.front=%s", e.front);
 
                     writefln("EXPORT SEC start");
-                    while(!e.empty) {
+                    while (!e.empty) {
                         writefln("e.front=%s", e.front);
                         e.popFront;
                     }
-                    foreach(export_type; export_sec[]) {
+                    foreach (export_type; export_sec[]) {
                         writefln("export func %s export_type.name = %s", export_type, export_type.name);
                         if (func_name == export_type.name) {
                             writefln("Found %s", func_name);
                             check(export_type.desc is IndexType.FUNC,
-                                format("The export %s is in module %s not a function type but a %s type", func_name, mod_name, export_type.desc));
+                                    format("The export %s is in module %s not a function type but a %s type",
+                                        func_name, mod_name, export_type.desc));
                             const func_sec = reader.get!(Section.FUNCTION);
                             funcidx = export_type.idx;
+                            writefln("# funcidx=%d", funcidx);
                             const typeidx = func_sec[funcidx].idx;
-                            version(none)
-                            function_instance = _instance.funcs_table[export_type.idx];
+                            writefln("# typeidx=%d", typeidx);
                             //const typeidx = func_index.idx;
                             //const code_sec = reader.get!(Section.CODE);
 
                             const type_sec = reader.get!(Section.TYPE);
-                            pragma(msg, typeof( type_sec));
+                            pragma(msg, typeof(type_sec));
                             pragma(msg, typeof(export_type));
                             const func_type = type_sec[typeidx];
                             static if (is(TMVReturns == void)) {
                                 check(func_type.results.length is 0,
-                                    format("Function %s in module %s does not specify a return type but expects %s", func_name, mod_name, toDType!TVMReturns, func_type.results[0]));
+                                        format("Function %s in module %s does not specify a return type but expects %s",
+                                            func_name, mod_name, toDType!TVMReturns, func_type.results[0]));
                             }
                             else {
                                 enum WasmReturnType = toWasmType!TVMReturns;
 
-                                check(func_type.results[0] is WasmReturnType,
-                                    format("Function %s in module %s has the wrong return type, define was %s but expected type %s", func_name, mod_name, func_type.results[0], WasmReturnType));
+                                check(func_type.results[0] is WasmReturnType, format("Function %s in module %s has the wrong return type, define was %s but expected type %s",
+                                        func_name, mod_name, func_type.results[0], WasmReturnType));
                             }
-                            check(func_type.params.length != TVMParams.length,
-                                format!"Number of arguments in the TVM_%s function in module %s does not match got %d expected %d"(func_name, mod_name, func_type.params.length, TVMParams.length));
-                            static assert(is(TVMContext == TVMParams[0]), format!"The first parameter of a wasm interface function must be %s"(TVMContext.stringof));
+                            writeln("Before func_type.params.length != TVMParams.length");
+                            check(func_type.params.length != TVMParams.length, format!"Number of arguments in the TVM_%s function in module %s does not match got %d expected %d"(
+                                    func_name, mod_name, func_type.params.length, TVMParams.length));
+                            static assert(is(TVMContext == TVMParams[0]),
+                                    format!"The first parameter of a wasm interface function must be %s"(
+                                        TVMContext.stringof));
 
-                            static foreach(i, P; TVMParams[1..$]) {{
+                            writeln("Before static foreach(i, P; TVMParams[1..$])");
+                            static foreach (i, P; TVMParams[1 .. $]) {
+                                {
                                     enum WasmType = toWasmType!P;
                                     static assert(WasmType !is Types.EMPTY,
-                                        format!"Parameter number %d Type %s is not a valid Wasm type"(i, P.stringof));
-                                    check(i < func_type.params.length, format!"Too few parameters expected %d but caller tries to access parameter number %d"(func_type.params.length, i));
+                                            format!"Parameter number %d Type %s is not a valid Wasm type"(i, P.stringof));
+                                    check(i < func_type.params.length, format!"Too few parameters expected %d but caller tries to access parameter number %d"(
+                                            func_type.params.length, i));
 
-                                    check(func_type.params[i] is WasmType,
-                                        format!"Parameter number %d in func TVM_%s doest not match in module %s got %s expected %s"
-                                        (i, func_name, mod_name, func_type.params[i], WasmType));
-                                }}
-                            return;
+                                    check(func_type.params[i] is WasmType, format!"Parameter number %d in func TVM_%s doest not match in module %s got %s expected %s"(
+                                            i, func_name, mod_name, func_type.params[i], WasmType));
+                                }
+                            }
+                            writeln("Before _instance.funcs_table[export_type.idx]");
+                            writefln("_instance.funcs_table=%d export_type.idx=%d", _instance.funcs_table.length, export_type
+                                    .idx);
+                            return _instance.funcs_table[export_type.idx];
                         }
 
                     }
 
-                    check(0, format("Function %s is not found in module %s",
-                            func_name, mod_name));
+                    check(0, format("Function %s is not found in module %s", func_name, mod_name));
+                    assert(0);
                 }
 
+                //                Module mod;
+                alias Params = ParameterTypeTuple!F;
+                enum ParamNames = [ParameterIdentifierTuple!F];
+                alias Returns = ReturnType!F;
+                enum param_prefix = "param_";
+                enum context_name = "ctx";
+                int funcidx;
+                string generate_func() {
+                    string[] func_body;
+                    string[] params;
+                    params ~= format!"ref TVMContext %s"(context_name);
+                    static foreach (i, P; Params) {
+                        {
+                            static if (ParamNames[i].length) {
+                                enum param_name = ParamNames[i];
+                            }
+                            else {
+                                enum param_name = format!`%s%d`(param_prefix, i);
+                            }
+                            params ~= format!`%s %s`(P.stringof, param_name);
+                            func_body ~= format!q{
+                                ctx.push(%2$s);
+                            }(P.stringof, param_name);
+                        }
+                    }
+                    const result = format!q{
+                        %1$s _inner_func(%2$s) {
+                            writeln("_inner_func `%2$s`");
+                            alias TVMFunction = typeof(_inner_func);
+                            writeln("# Before `%3$s`");
+                            immutable function_instance=check_func_type!TVMFunction;
+                            import std.stdio;
+                            writeln("# After `%3$s`");
+                            %3$s
+                            _instance.bytecode_call(ctx, function_instance);
+                            writeln("funcidx=", funcidx);
+                            writefln("func_inst=%%s", function_instance);
+                            return ctx.pop!%1$s;
+                        }
+                    }(Returns.stringof, params.join(", "), func_body.join("\n"),);
+                    return result;
+                }
+                //                FunctionInstance function_instance;
+                enum code = generate_func;
+                pragma(msg, "CODE=", code);
+                mixin(code);
 
-                check_func_type;
+                //                check_func_type;
                 return &_inner_func;
             }
-
-
 
             auto lookup() {
                 pragma(msg, "func_name ", F.mangleof);
                 return lookup!F(F.mangleof);
             }
 
-
-
         }
-
 
         @safe class Instance {
             import core.exception : RangeError;
             import tagion.wasm.WasmReader;
-            import tagion.wasm.WasmBase : Section, ExprRange, IRType, IR,
-            instrTable, IndexType, Types;
+            import tagion.wasm.WasmBase : Section, ExprRange, IRType, IR, instrTable, IndexType, Types;
             import tagion.tvm.TVMExtOpcode : InternalIR, convert;
+
             immutable(ubyte[]) all_frames;
             immutable(FunctionInstance[]) funcs_table;
 
             const(Sections) sections;
-//            const(string) mod_name;
+            //            const(string) mod_name;
             this() {
                 auto range = reader[];
-                static foreach(E; EnumMembers!Section) {
+                static foreach (E; EnumMembers!Section) {
                     if (!range.empty && (range.front.section is E)) {
                         sections[E] = range.front.sec!E;
                         range.popFront;
@@ -339,10 +345,10 @@ struct Function {
                 }
                 FunctionInstance[] _funcs_table;
 
-
                 all_frames = load(reader, _funcs_table);
 
                 funcs_table = (() @trusted { return assumeUnique(_funcs_table); })();
+                writefln("LOADED funcs_table.length=%d", funcs_table.length);
             }
 
             private void bytecode_call(ref TVMContext ctx, ref const FunctionInstance wasm_func) {
@@ -354,14 +360,14 @@ struct Function {
                 }
                 void bytecode_func(ref const FunctionInstance wasm_func) @trusted {
                     auto locals = ctx.get_locals(wasm_func);
-                    scope(exit) {
+                    scope (exit) {
                         ctx.pop_return(wasm_func);
                     }
                     //locals=ctx.stack
                     // scope locals=new WasmType[wasm_func.local_size];
                     // ctx.pop(locals, wasm_func.param_count);
                     //locals = ctx.get_locals
-                    immutable frame=wasm_func.frame;
+                    immutable frame = wasm_func.frame;
                     size_t ip; // = wasm_func.ip;
                     try {
                         scope (exit) {
@@ -371,9 +377,9 @@ struct Function {
                         }
                         //auto locals = ctx.locals[local_offset .. local_offset + local_size];
                         writefln("frame.length = %d", frame.length);
-                    FETCH_LOOP: while (ip < frame.length) {
+                        FETCH_LOOP: while (ip < frame.length) {
                             const opcode = frame[ip++];
-                            writefln(" %d %s", ip-1, opcode);
+                            writefln(" %d %s", ip - 1, opcode);
                             @safe void read_leb(T)(ref T x) nothrow if (isIntegral!T) {
                                 const result = LEB128.decode!T(frame[ip .. $]);
                                 ip += cast(uint) result.size;
@@ -413,23 +419,23 @@ struct Function {
                             }
 
                             version (none) @safe void op_trunc(DST, SRC, bool saturating)() nothrow
-                                if (isNumeric!DST && isNumeric!SRC) {
-                                    const src_value = ctx.pop!SRC;
-                                    static if (isFloatingPoint!SRC && !saturating) {
-                                        if (isnan(src_value)) {
-                                            wasm_set_exception(wasm_module, "invalid conversion to integer");
-                                            return true;
-                                        }
-                                        else if (src_value <= src.value || src_value >= src_max) {
-                                            wasm_set_exception(wasm_module, "integer overflow");
-                                            return true;
-                                        }
+                                    if (isNumeric!DST && isNumeric!SRC) {
+                                const src_value = ctx.pop!SRC;
+                                static if (isFloatingPoint!SRC && !saturating) {
+                                    if (isnan(src_value)) {
+                                        wasm_set_exception(wasm_module, "invalid conversion to integer");
+                                        return true;
                                     }
-                                    const res = trunc!DST(x);
-                                    ctx.push(res);
-                                    return false;
-
+                                    else if (src_value <= src.value || src_value >= src_max) {
+                                        wasm_set_exception(wasm_module, "integer overflow");
+                                        return true;
+                                    }
                                 }
+                                const res = trunc!DST(x);
+                                ctx.push(res);
+                                return false;
+
+                            }
 
                             import std.math;
 
@@ -1080,11 +1086,12 @@ struct Function {
                         unwined = true;
                     }
                 }
+
                 bytecode_func(wasm_func);
             }
 
-            final private immutable(ubyte[]) load(const(WasmReader) reader, ref FunctionInstance[] _funcs_table)  {
-                version(none) {
+            final private immutable(ubyte[]) load(const(WasmReader) reader, ref FunctionInstance[] _funcs_table) {
+                //                version(none) {
                 bool indirect_call_used;
                 //TVMBuffer[] bouts;
 
@@ -1092,15 +1099,14 @@ struct Function {
                     // scope const(uint)[] labels;
                     // scope const(uint)[] label_offsets;
                     //auto sec_imports = sections[Sections.IMPORTS];
-                    const(ExprRange.IRElement) expand_block(const uint level, const uint frame_offset) @safe {
+                    uint block_no;
+                    const(ExprRange.IRElement) expand_block() @safe {
                         //TVMBuffer bout;
-                        FunctionInstance.FuncBody.BlockSegment block_segment = FunctionInstance.FuncBody.BlockSegment(bout.offset);
-                        scope(exit) {
+                        FunctionInstance.FuncBody.BlockSegment block_segment = FunctionInstance.FuncBody.BlockSegment(bout
+                                .offset);
+                        scope (exit) {
                             block_segment.end_index = bout.offset;
                             func_body.block_segments ~= block_segment;
-                        }
-                        uint global_offset() @safe nothrow pure {
-                            return cast(uint)(bout.offset + frame_offset);
                         }
                         while (!expr.empty) {
                             const elm = expr.front;
@@ -1112,36 +1118,36 @@ struct Function {
                                     bout(elm.code.convert);
                                     break;
                                 case BLOCK:
-                                    const end_elm = expand_block(level + 1, global_offset);
+                                    const end_elm = expand_block;
                                     if (elm.code is IR.IF) {
-                                        bout(InternalIR.BR_IF); // IF instruction
+                                        bout(InternalIR.IF, LEB128.encode(block_no++)); // IF instruction
 
                                         //bout.write(cast(uint)(labels.length)); // Labelidx number to else
-                                        const else_offset = global_offset + uint.sizeof + cast(
-                                            uint) bouts[level + 1].offset;
-                                        bout.write(else_offset);
-                                        labels ~= global_offset; // Else label
-                                        assert(global_offset == else_offset);
-                                        pragma(msg, "end_elm.code ", typeof(end_elm));
+                                        // const else_offset = global_offset + uint.sizeof + cast(
+                                        //     uint) bout.offset;
+                                        // bout.write(else_offset);
+                                        // labels ~= global_offset; // Else label
+                                        // assert(global_offset == else_offset);
+                                        // pragma(msg, "end_elm.code ", typeof(end_elm));
                                         if (end_elm.code is IR.ELSE) {
-                                            const endif_elm = expand_block(level + 1, global_offset);
+                                            const endif_elm = expand_block;
+                                            bout(InternalIR.ELSE, LEB128.encode(block_no++)); // ELSE instruction
                                             // Branch to endif
-                                            bout(InternalIR.EXTRA_BR);
-                                            const endif_offset = global_offset + uint.sizeof + cast(
-                                                uint) bouts[level + 1].offset;
-                                            bout(endif_offset);
-                                            bout(bouts[level + 1]);
+                                            // bout(InternalIR.EXTRA_BR);
+                                            // const endif_offset = global_offset + uint.sizeof + cast(uint) bout.offset;
+                                            // bout(endif_offset);
+                                            // bout(bouts[level + 1]);
                                         }
                                     }
                                     else if (elm.code is IR.LOOP) {
-                                        bout(InternalIR.BR, cast(uint)(labels.length - 1));
+                                        bout(InternalIR.BR, LEB128.encode(block_no++));
                                     }
                                     // else Simple End
                                     break;
                                 case PREFIX:
                                     break;
                                 case BRANCH:
-                                    bout(elm.code.convert, elm.warg.get!uint.u32);
+                                    bout(elm.code.convert, expr.leb128);
                                     //bout(elm.warg.get!uint);
                                     break;
                                 case BRANCH_TABLE:
@@ -1155,11 +1161,10 @@ struct Function {
                                     const funcidx = elm.warg.get!uint;
                                     uint importidx;
                                     auto import_match = sections[Section.IMPORT][].filter!((a) => {
-                                            importidx++;
-                                            return a.importdesc.desc is IndexType.FUNC;
-                                        })
-                                        .filter!((a) => a.importdesc.get!(IndexType.FUNC)
-                                            .funcidx is funcidx)
+                                        importidx++;
+                                        return a.importdesc.desc is IndexType.FUNC;
+                                    })
+                                        .filter!((a) => a.importdesc.get!(IndexType.FUNC).funcidx is funcidx)
                                         .doFront;
                                     pragma(msg, typeof(import_match));
                                     if (import_match !is import_match.init) {
@@ -1218,7 +1223,7 @@ struct Function {
                         return ExprRange.IRElement.unreachable;
                     }
 
-                    expand_block(0, current_offset);
+                    expand_block(0);
                     // Insert branch jump pointes of the labels
                     // auto frame = bouts[0].toBytes;
                     // (() @trusted {
@@ -1233,92 +1238,74 @@ struct Function {
                 // bouts ~= frame_buf;
                 frame_buf.reserve = reader.serialize.length;
                 auto func_table = new FunctionInstance[sections[Section.CODE].length];
-//                _funcs_table.length = sections[Section.CODE].length;
-                auto func_range = (() @trusted => lockstep(sections[Section.FUNCTION][],
-                        sections[Section.CODE][], StoppingPolicy.requireSameLength))();
-//                alias FuncRange = typeof(func_range);
+                //                _funcs_table.length = sections[Section.CODE].length;
+                auto func_range = (() @trusted => lockstep(sections[Section.FUNCTION][], sections[Section.CODE][],
+                        StoppingPolicy.requireSameLength))();
+                //                alias FuncRange = typeof(func_range);
                 immutable(ubyte)[] all_frames;
-                // version(none)
-                // uint expand_functions(const size_t index=0) @trusted {
-                //     if (func_range.empty) {
-                //         all_frame = frame_buf.toBytes.idup;
-                //         return cast(uint) frame_buf.offset;
-                //     }
-                //     const start_ip = cast(uint) frame_buf.offset;
-                //     auto c = range.front[0];
-                //     const local_size = c.locals.walkLength;
-                //     block(c[]);
-                //     func_range.popFront;
-                //     const end_ip = expand_functions(index+1);
-                //     func_table[index]=FunctionInstance(all_frames[start_ip..end_ip], local_size);
-                //     return start_ip;
 
-                //     // scope const func_type = sections[Section.TYPE][][sec_func.idx]; // typeidx
-                //     // func.local_size = cast(ushort) c.locals.walkLength;
-                //     // range.popFront;
                 immutable(FunctionInstance[]) expand_functions() @trusted {
                     const number_of_functions = sections[Section.CODE].length;
-//                    sections[Section.CODE].length];
-                    scope func_bodies =  new FunctionInstance.FuncBody[number_of_functions]; // List of all block segements in each function
+                    //                    sections[Section.CODE].length];
+                    scope func_bodies = new FunctionInstance.FuncBody[number_of_functions]; // List of all block segements in each function
 
-                    foreach (ref func_body, sec_func, c;
-                        lockstep(func_bodies, sections[Section.FUNCTION][],
+                    foreach (ref func_body, sec_func, c; lockstep(func_bodies, sections[Section.FUNCTION][],
                             sections[Section.CODE][], StoppingPolicy.requireSameLength)) {
                         const func_type = sections[Section.TYPE][sec_func.idx]; // typeidx
-                        func_body.local_count = cast(ushort) (c.locals.walkLength);
-                        func_body.param_count = cast(ushort) (func_type.params.length);
-                        func_body.return_count = cast(ushort) (func_type.results.length);
+                        func_body.local_count = cast(ushort)(c.locals.walkLength);
+                        func_body.param_count = cast(ushort)(func_type.params.length);
+                        func_body.return_count = cast(ushort)(func_type.results.length);
 
-                        func_body.block_segments~=FunctionInstance.FuncBody.BlockSegment(frame_buf.offset);
+                        func_body.block_segments ~= FunctionInstance.FuncBody.BlockSegment(frame_buf.offset);
                         pragma(msg, typeof(c[]));
-                        block(c[], func_body);
+                        block(frame_buffer, c[], func_body);
                         func_body.block_segements[0].end_index = frame_buf.offset;
                     }
 
                     immutable full_frame = frame_buf.toBytes.idup;
                     auto result = func_bodies.map!((func_body) => FunctionInstance(func_body, full_frame)).array;
                     return assumeUnique(result);
-                    // auto func_table = new FunctionInstance[number_of_functions];
-                    // foreach (ref func, block_segemnts; lockstep(func_table, func_bodies)) {
-
-
-//                    }
 
                 }
+
                 expand_functions;
-                }
-                    //return (() @trusted => assumeUnique(func_table))();
+                //}
+                //return (() @trusted => assumeUnique(func_table))();
                 return null;
             }
 
         }
     }
+
     unittest {
         static int simple_int(int x, int y);
         TVMModules mod;
-//        mod.lookup!simple_int("env");
+        //        mod.lookup!simple_int("env");
     }
 
     unittest {
         import tagion.tvm.test.wasm_samples : simple_alu;
         import tagion.tvm.TVMContext;
+
         // static int simple_int(int x, int y);
         TVMModules tvm_mod;
-        auto mod=tvm_mod("env", simple_alu);
+        auto mod = tvm_mod("env", simple_alu);
 
-//        import mod_simple_alu = tests.simple_alu.simple_alu;
+        //        import mod_simple_alu = tests.simple_alu.simple_alu;
 
         tvm_mod.link;
         {
             TVMContext ctx;
             ctx.stack.length = 10;
+            writefln("mod.instance.funcs_table.length=%d", mod.instance.funcs_table.length);
+            assert(mod.instance.funcs_table.length > 0);
             const wasm_func_inc = mod.lookup!(func_inc);
-
+            writefln("wasm_func_inc=%s", wasm_func_inc);
             const result = wasm_func_inc(ctx, 17);
             writefln("result=%s", result);
             writefln("ctx.sp=%s", ctx.sp);
         }
-//        mod.lookup!simple_int("env");
+        //        mod.lookup!simple_int("env");
     }
 }
 

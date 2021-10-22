@@ -31,7 +31,7 @@ protected string generateInternalIR(string enum_name)() {
     codes ~= format!`enum %s : ubyte {`(enum_name);
     import tagion.wasm.WasmBase : IR;
 
-    enum Eliminate = [IR.NOP, IR.IF, IR.ELSE, IR.BLOCK, IR.END, IR.LOOP];
+    enum Eliminate = [IR.NOP, IR.END];
     foreach (E; EnumMembers!(IR)) {
         static if (!Eliminate.canFind(E) && E !is IR.TRUNC_SAT) {
             version (COMPACT_EXTENDED_IR) {
