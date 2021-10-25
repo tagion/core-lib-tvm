@@ -1223,7 +1223,7 @@ struct Function {
                         return ExprRange.IRElement.unreachable;
                     }
 
-                    expand_block(0);
+                    expand_block;
                     // Insert branch jump pointes of the labels
                     // auto frame = bouts[0].toBytes;
                     // (() @trusted {
@@ -1234,9 +1234,9 @@ struct Function {
                     // })();
                 }
 
-                auto frame_buf = new TVMBuffer;
+                auto frame_buffer = new TVMBuffer;
                 // bouts ~= frame_buf;
-                frame_buf.reserve = reader.serialize.length;
+                frame_buffer.reserve = reader.serialize.length;
                 auto func_table = new FunctionInstance[sections[Section.CODE].length];
                 //                _funcs_table.length = sections[Section.CODE].length;
                 auto func_range = (() @trusted => lockstep(sections[Section.FUNCTION][], sections[Section.CODE][],
@@ -1256,13 +1256,13 @@ struct Function {
                         func_body.param_count = cast(ushort)(func_type.params.length);
                         func_body.return_count = cast(ushort)(func_type.results.length);
 
-                        func_body.block_segments ~= FunctionInstance.FuncBody.BlockSegment(frame_buf.offset);
+                        func_body.block_segments ~= FunctionInstance.FuncBody.BlockSegment(frame_buffer.offset);
                         pragma(msg, typeof(c[]));
                         block(frame_buffer, c[], func_body);
-                        func_body.block_segements[0].end_index = frame_buf.offset;
+                        func_body.block_segments[0].end_index = frame_buffer.offset;
                     }
 
-                    immutable full_frame = frame_buf.toBytes.idup;
+                    immutable full_frame = frame_buffer.toBytes.idup;
                     auto result = func_bodies.map!((func_body) => FunctionInstance(func_body, full_frame)).array;
                     return assumeUnique(result);
 
